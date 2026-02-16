@@ -4,7 +4,7 @@
     "description": "E2E encrypted chat for small groups",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
         "dev": "node server.js"
     },
     "keywords": ["e2ee","chat","privacy"],
