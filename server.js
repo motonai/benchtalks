@@ -68,7 +68,7 @@ db.exec(`
 
     //new room
     app.post('/api/create-room', (req,res) => {
-        const {room_id, admint_token_hash} = req.body;
+        const {room_id, admin_token_hash} = req.body;
 
         if (!room_id || !admin_token_hash) {
             return res.status(400).json({error: 'No room_id or admin_token_hash'});

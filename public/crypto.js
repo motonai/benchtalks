@@ -145,7 +145,7 @@ function buildAdminURL(roomId, encryptionKey, adminToken) {
     const keyString = KeyToString(encryptionKey);
     const baseURL = window.location.origin;
 
-    return `${baseURl}/room.html?room=${roomId}#key=${keyString}&admin=${adminToken}`;
+    return `${baseURL}/room.html?room=${roomId}#key=${keyString}&admin=${adminToken}`;
 }
 
 //Now, parsing to get the key and admin token
