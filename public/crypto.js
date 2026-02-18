@@ -22,8 +22,144 @@ function stringToKey(keyString){
 }
 
 //messages
-//treat messages as objects and turn them into json strings.Then turn the json strings to bytes via Uint8Array
+
+
+//treat messages as objects and turn them into json strings.
+// Then turn the json strings to bytes via Uint8Array
 function encryptMessage(messageObj,key){
     const messageJSON = JSON.stringify(messageObj);
     const messageBytes = nacl.util.decodeUTF8(messageJSON);
+
+
+    //Generation of random series of numbers that are going to be used only once. These are called nonces
+    const nonce = nacl.randomBytes(24); //24 bytes for XSalsa20
+
+    //message encryption. The nacl.secretbox does symmetric encryption with authentication and it returns Uint8Array of encrypted data
+    const encrypted = nacl.secretbox(messageBytes, nonce, key);
+
+    //Combining the nonce + the encrypted data in order to send the nonce so the receiver can decrypt
+    const combined = new Uint8Array(nonce.length + encrypted.length);
+    combined.set(nonce);
+    combined.set(encrypted, nonce.length);
+
+    //conversion to base64 to transmit
+    return nacl.util.encodeBase64(combined);
+}
+
+//message decryption
+
+//encryptedBase64 as string from server and Uint8Array(32) as key. 
+// If the decryption fails the message object is null
+function decryptMessage(encryptedBase64, key) {
+    try {
+        const combined = nacl.util.decodeBase64(encryptedBase64);
+
+        //spliting the message object
+        const nonce = combined.slice(0, 24);
+        const encrypted = combined.slice(24);
+
+        //decrypting
+        const decrypted = nacl.secretbox.open(encrypted, nonce, key);
+
+        if (!decrypted) {
+            //failure
+            console.error('Decryption failed');
+            return null;
+        }
+
+        const messageJSON = nacl.util.encodeUTF8(decrypted);
+
+        return JSON.parse(messageJSON);
+    }catch (error) {
+        console.error('Error decrypting message:', error);
+        return null;
+    }
+}
+
+//encryption & decryption for images
+
+//this turns the image into binary then u8a, get a nonce and encrypt the bytes
+// and puts them together and converts that in base64.
+async function encryptImage(file, key) {
+    const arrayBuffer = await file.arrayBuffer();
+    const imageBytes = new Uint8Array(arrayBuffer);
+    const nonce = nacl.randomBytes(24);
+    const encrypted = nacl.secretbox(imageBytes, nonce, key);
+    const combined = new Uint8Array(nonce.length + encrypted.length);
+    combined.set(nonce);
+    combined.set(encrypted,nonce.length);
+    return nacl.util.encodeBase64(combined);
+}
+
+//So this one takes the encryptedBase64 with the u8a as key and puts out what is called a "blob" 
+
+function decryptImage(encryptedBase64, key, mimeType) {
+    try {
+        const combined = nacl.util.decodeBase64(encryptedBase64);
+        const nonce = combined.slice(0,24);
+        const encrypted = combined.slice(24);
+        const decrypted = nacl.secretbox.open(encrypted, nonce, key);
+
+        if  (!decrypted) {
+            //failure - same concept
+            console.error('Image decryption failed');
+            return null;
+        }
+        return new Blob([decrypted],{type: mimeType});
+    } catch(error){
+        console.error('Error decrypting image:',error);
+        return null;
+    }
+}
+
+//admin tokens
+
+//generation random tokens. it will show on urls but as a base64 string
+function generateAdminToken() {
+    const tokenBytes = nacl.randomBytes(32);
+    return nacl.util.encodeBase64(tokenBytes);
+}
+
+//hashing admin token BEFORE sending it to the server
+async function hashAdminToken(tokenString) {
+const tokenBytes = nacl.util.decodeBase64(tokenString);
+
+//there's built-in crypto in browsers :o It's going to be used for hashing and then it converts to hex string
+const hashBuffer = await crypto.subtle.digest('SHA-256', tokenBytes);
+const hashArray = Array.from(new Uint8Array(hashBuffer));
+const hashHex = hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+return hashHex;
+}
+
+//Utilities for URLs
+
+//shareable room url for users
+function buildRoomURL(roomId, encryptionKey) {
+    const keyString = KeyToString(encryptionKey);
+    const baseURL = window.location.origin; //this part is the 'https://benchtalks.chat' part
+    return `${baseURL}/room.html?room=${roomId}#key=${keyString}`;
+}
+
+//admin room URL (with admin token)
+function buildAdminURL(roomId, encryptionKey, adminToken) {
+    const keyString = KeyToString(encryptionKey);
+    const baseURL = window.location.origin;
+
+    return `${baseURl}/room.html?room=${roomId}#key=${keyString}&admin=${adminToken}`;
+}
+
+//Now, parsing to get the key and admin token
+function parseRoomURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    const fragment = window.location.hash.substring(1); // this one gets the everything after # and removes it
+    const fragmentParams = new URLSearchParams(fragment);
+    const keyString = fragmentParams.get('key');
+    const adminToken = fragmentParams.get('admin'); //null if not present (?)
+    const encryptionKey = keyString ? stringToKey(keyString) : null;
+    return{
+        roomId,
+        encryptionKey,
+        adminToken
+    };
 }
