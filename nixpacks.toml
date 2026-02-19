@@ -1,0 +1,16 @@
+providers = ['php', 'node']
+
+[phases.install]
+cmds = [
+  'composer install --no-dev --optimize-autoloader --no-scripts',
+  'npm ci --cache .npm --prefer-offline'
+]
+
+[phases.build]
+cmds = ['npm run build']
+
+[phases.setup]
+nixPkgs = ['php83Extensions.composer', 'nodejs_20']
+
+[staticAssets]
+mountPath = '/public'
