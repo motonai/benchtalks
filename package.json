@@ -7,6 +7,10 @@
         "start": "node server.js",
         "dev": "node server.js"
     },
+
+    "engines": {
+        "node": "20.x"
+    },
     "keywords": ["e2ee","chat","privacy"],
     "author": "Isidoros Manolas",
     "license": "MIT",
