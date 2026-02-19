@@ -1,21 +1,30 @@
 //random key generation - gives out 32 random bytes = 256 (supposed to be secure) as key. Why: https://www.ssldragon.com/blog/256-bit-encryption/, https://www.clickssl.net/blog/256-bit-encryption, https://www.newsoftwares.net/blog/why-256-bit-isnt-always-stronger-than-128-bit/, https://en.wikipedia.org/wiki/Advanced_Encryption_Standard 
-function generateEncryptionKey(){
+function generateEncryptionKey() {
     return nacl.randomBytes(32);
 }
 
 //The keygen will be used for everything that has to be encrypted (urls, messages, timestamps, etc.)
 
 //https://en.wikipedia.org/wiki/Base64
-function KeyToString(key){
+function keyToString(key) {
     return nacl.util.encodeBase64(key);
 }
 
 //https://stackoverflow.com/questions/38718202/how-to-use-uint8array-uint16array-uin32array, https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array
 function stringToKey(keyString){
+
+    console.log('stringToKey input:', keyString);
+    console.log('stringToKey input length:', keyString ? keyString.length : 0);
+
     try{
+        const decoded = nacl.util.decodeBase64(keyString);
+        //debuging
+        console.log('stringToKey decoded:', decoded);
+        console.log('stringToKey decoded length:', decoded ? decoded.length : 0);
         //the decodeBase64 makes base64 strings to bytes
-        return nacl.util.decodeBase64(keyString);
-    } catch(error){
+        return decoded;
+    } catch(error) {
+        console.error('stringToKey ERROR:', error);
         console.error('Invalid encryption key format');
         return null;
     }
@@ -133,31 +142,68 @@ return hashHex;
 
 //Utilities for URLs
 
+//help -- changing base64 to base64url (URL-safe)
+function base64ToBase64Url(base64) {
+    return base64
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+}
+
+
 //shareable room url for users
 function buildRoomURL(roomId, encryptionKey) {
-    const keyString = KeyToString(encryptionKey);
-    const baseURL = window.location.origin; //this part is the 'https://benchtalks.chat' part
-    return `${baseURL}/room.html?room=${roomId}#key=${keyString}`;
+    const keyString = keyToString(encryptionKey);
+    const urlSafeKey = base64ToBase64Url(keyString);
+    const baseURL = window.location.origin;
+    
+    return `${baseURL}/room.html?room=${roomId}#key=${urlSafeKey}`;
 }
+
 
 //admin room URL (with admin token)
 function buildAdminURL(roomId, encryptionKey, adminToken) {
-    const keyString = KeyToString(encryptionKey);
+    const keyString = keyToString(encryptionKey);
+    const urlSafeKey = base64ToBase64Url(keyString);
+    const urlSafeAdmin = base64ToBase64Url(adminToken);
     const baseURL = window.location.origin;
+    
+    return `${baseURL}/room.html?room=${roomId}#key=${urlSafeKey}&admin=${urlSafeAdmin}`;
+}
 
-    return `${baseURL}/room.html?room=${roomId}#key=${keyString}&admin=${adminToken}`;
+
+// changing base64url back to base64
+function base64UrlToBase64(base64url) {
+    let base64 = base64url
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+    
+    // Add back padding if needed
+    while (base64.length % 4 !== 0) {
+        base64 += '=';
+    }
+    
+    return base64;
 }
 
 //Now, parsing to get the key and admin token
 function parseRoomURL() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
-    const fragment = window.location.hash.substring(1); // this one gets the everything after # and removes it
+    
+    const fragment = window.location.hash.substring(1);
     const fragmentParams = new URLSearchParams(fragment);
-    const keyString = fragmentParams.get('key');
-    const adminToken = fragmentParams.get('admin'); //null if not present (?)
+    
+    const urlSafeKey = fragmentParams.get('key');
+    const urlSafeAdmin = fragmentParams.get('admin');
+    
+    // conversion  from base64url to base64
+    const keyString = urlSafeKey ? base64UrlToBase64(urlSafeKey) : null;
+    const adminToken = urlSafeAdmin ? base64UrlToBase64(urlSafeAdmin) : null;
+    
     const encryptionKey = keyString ? stringToKey(keyString) : null;
-    return{
+    
+    return {
         roomId,
         encryptionKey,
         adminToken

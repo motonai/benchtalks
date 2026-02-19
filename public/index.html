@@ -123,10 +123,18 @@
                     const roomId = generateId(16); // 32 chars hex string
                     const encryptionKey = generateEncryptionKey(); //32 random bytes
                     const adminToken = generateAdminToken(); // base64 32 random bytes
+                    console.log('Generated adminToken:', adminToken);
+                    console.log('Generated adminToken length:', adminToken.length);
 
                     console.log('Generated room_id:', roomId);
-                    console.log('Generated encryption key (will be in URL fragment)');
+                    console.log('Generated encryption key:', encryptionKey);
+                    console.log('encryptionKey type:', encryptionKey);
+                    console.log('encryptionKey length:', encryptionKey.length);
                     console.log('Generated admin token (will be in URL fragment)');
+
+                    const keyString = keyToString(encryptionKey);
+                    console.log('keyString:', keyString);
+                    console.log('keyString length:', keyString.length);
 
                     const adminTokenHash = await hashAdminToken(adminToken);
                     console.log('Hashed admin token for server:', adminTokenHash);
@@ -143,18 +151,38 @@
 
                     });
 
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+
                     if (!response.ok) {
+                        const errorText = await response.text()
+                        console.error('Server error:', errorText);
                         throw new Error('Failed to create room on server');
                     }
 
                     const data = await response.json();
                     console.log('Server response:', data);
 
-                    const shareableURL = buildRoomURL(roomId, encryptionKey);
-                    const adminURL = buildAdminURL(roomId, encryptionKey, adminToken);
+                    // Build URLs
+                    console.log('About to build URLs...');
+                    console.log('roomId:', roomId);
+                    console.log('encryptionKey:', encryptionKey);
+                    console.log('adminToken:', adminToken);
 
-                    console.log('Shareable URL:', shareableURL);
-                    console.log('Admin URL:', adminURL);
+                    let shareableURL;
+                    let adminURL;
+
+                  try{  
+                        shareableURL = buildRoomURL(roomId, encryptionKey);
+                        console.log('Shareable URL:', shareableURL);
+
+                        adminURL = buildAdminURL(roomId, encryptionKey, adminToken);
+                        console.log('FullAdmin URL:', adminURL);
+                        console.log('Admin URL built with token:', adminToken);
+                    }catch(urlError) {
+                        console.error('Error building URLs:', urlError);
+                        throw urlError;
+                    }
 
                     //store the state
                     currentRoomId = roomId;

@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BenchTalks - Room</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* styles specific to room.html */
+    body {
+      padding: 0;
+    }
+    
+    .room-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      .room-container {
+            background: #ffffff;
+            color: #1a1a1a;
+        }
+    }
+    
+    
+    .room-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #404040;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      .room-header {
+            border-bottom-color: #d0d0d0;
+        }
+    }
+    
+    .room-info h2 {
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+    }
+    
+    .room-status {
+      font-size: 0.85rem;
+      opacity: 0.7;
+    }
+    
+    .room-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-small {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      border: 1px solid #e0e0e0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      .btn-small {
+            border-color: #1a1a1a;
+        }
+    }
+    
+    .btn-small:hover {
+      background: #e0e0e0;
+      color: #1a1a1a;
+    }
+    
+    .btn-danger {
+      border-color: #dc2626;
+      color: #dc2626;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+      color: #ffffff;
+    }
+    
+   
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .message {
+      display: flex;
+      flex-direction: column;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+    
+    .message-sender {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+    
+    .message-content {
+      padding: 10px 14px;
+      border: 1px solid #404040;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      .message-content {
+            border-color: #d0d0d0;
+        }
+    }
+    
+    .message-time {
+      font-size: 0.75rem;
+      opacity: 0.5;
+      margin-top: 4px;
+    }
+    
+    
+    .system-message {
+      text-align: center;
+      opacity: 0.6;
+      font-size: 0.85rem;
+      padding: 8px;
+      margin: 8px auto;
+    }
+    
+   
+    .input-container {
+      padding: 16px 20px;
+      border-top: 1px solid #404040;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      .input-container {
+            border-top-color: #d0d0d0;
+        }
+    }
+    
+    #messageInput {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #404040;
+      background: transparent;
+      color: inherit;
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      min-height: 40px;
+      max-height: 120px;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      #messageInput {
+            border-color: #d0d0d0;
+        }
+    }
+    
+    #messageInput:focus {
+      outline: none;
+      border-color: #e0e0e0;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      #messageInput:focus {
+            border-color: #1a1a1a;
+        }
+    }
+    
+    #sendBtn {
+      padding: 10px 20px;
+      border: 1px solid #e0e0e0;
+      background: #e0e0e0;
+      color: #1a1a1a;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    
+    @media (prefers-color-scheme: light) {
+      #sendBtn {
+        background: #1a1a1a;
+        color: #ffffff;
+        border-color: #1a1a1a;
+      }
+    }
+    
+    #sendBtn:hover {
+      opacity: 0.8;
+    }
+    
+    #sendBtn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    
+    #attachBtn {
+        padding: 10px 12px;
+        border: 1px solid #404040;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 1.2rem;
+    }
+
+    @media (prefers-color-scheme: light) {
+        #attachBtn {
+            border-color: #d0d0d0;
+        }
+    }
+
+    #attachBtn:hover {
+        background: #404040;
+    }
+
+    @media (prefers-color-scheme: light) {
+        #attachBtn:hover {
+            background: #f0f0f0;
+        }
+    }
+
+
+    .message-image {
+        max-width: 100%;
+        max-height: 400px;
+        margin-top: 8px;
+        cursor: pointer;
+        border: 1px solid #404040;
+    }
+
+    @media (prefers-color-scheme: light) {
+    .message-image {
+            border-color: #d0d0d0;
+        }
+    }
+
+    .message-image:hover {
+        opacity: 0.9;
+    }
+
+
+    .image-loading {
+    padding: 20px;
+    text-align: center;
+    opacity: 0.7;
+    font-size: 0.9rem;
+    border: 1px dashed #404040;
+    margin-top: 8px;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .image-loading {
+            border-color: #d0d0d0;
+        }
+    }
+
+    .centered-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- loading state -->
+  <div id="loadingState" class="centered-message">
+    <div class="spinner"></div>
+    <p style="margin-top: 16px;">Joining bench...</p>
+  </div>
+
+  <!-- error state -->
+  <div id="errorState" class="centered-message hidden">
+    <h2>⚠️ Unable to Join</h2>
+    <p id="errorText" style="margin: 16px 0; opacity: 0.8;"></p>
+    <button onclick="location.href='/'" class="btn-small">Go Home</button>
+  </div>
+
+  <!--Interface -->
+  <div id="roomInterface" class="room-container hidden">
+    
+    <div class="room-header">
+      <div class="room-info">
+        <h2>🪑 BenchTalks</h2>
+        <div class="room-status">
+          <span id="userCount">0 people here</span>
+        </div>
+      </div>
+      <div class="room-actions">
+        <button id="deleteRoomBtn" class="btn-small btn-danger hidden">Delete Room</button>
+        <button onclick="location.href='/'" class="btn-small">Leave</button>
+      </div>
+    </div>
+
+    
+    <div id="messagesContainer" class="messages-container">
+      <!-- where the messages should appear -->
+    </div>
+
+    
+    <div class="input-container">
+        <input
+            type="file"
+            id="imageInput"
+            accept="image/*"
+            style="display: none;"
+        >
+        <button id="attachBtn" class="btn-small" title="Attach image">📎</button>
+      <textarea 
+        id="messageInput" 
+        placeholder="Type a message..."
+        rows="1"
+      ></textarea>
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <!--dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
+  <script src="crypto.js"></script>
+  
+  <script>
+    
+    //state start
+    
+    let roomId = null;
+    let encryptionKey = null;
+    let adminToken = null;
+    let displayName = null;
+    let ws = null;
+    let isConnected = false;
+    
+   //doms
+    
+    const loadingState = document.getElementById('loadingState');
+    const errorState = document.getElementById('errorState');
+    const errorText = document.getElementById('errorText');
+    const roomInterface = document.getElementById('roomInterface');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const userCount = document.getElementById('userCount');
+    const deleteRoomBtn = document.getElementById('deleteRoomBtn');
+    const attachBtn = document.getElementById('attachBtn');
+    const imageInput = document.getElementById('imageInput');
+    //room start
+    
+    function init() {
+            //debugging: Loging the raw parts from url
+        console.log('=== DEBUGGING URL PARSING ===');
+        console.log('Full URL:', window.location.href);
+        console.log('Search (query):', window.location.search);
+        console.log('Hash (fragment):', window.location.hash);
+
+  
+      
+        //read URL
+      const urlData = parseRoomURL();
+      
+        console.log('=== PARSED DATA ===');
+        console.log('urlData:', urlData);
+        console.log('roomId:', urlData.roomId);
+        console.log('roomId type:', typeof urlData.roomId);
+        console.log('encryptionKey:', urlData.encryptionKey);
+        console.log('encryptionKey type:', typeof urlData.encryptionKey);
+        console.log('adminToken:', urlData.adminToken);
+  
+        // Check each condition separately
+        console.log('=== VALIDATION ===');
+        console.log('Has roomId?', !!urlData.roomId);
+        console.log('Has encryptionKey?', !!urlData.encryptionKey);
+        console.log('roomId is truthy?', urlData.roomId ? true : false);
+        console.log('encryptionKey is truthy?', urlData.encryptionKey ? true : false);
+  
+        if (!urlData.roomId || !urlData.encryptionKey) {
+            console.error('VALIDATION FAILED!');
+            console.error('Missing roomId:', !urlData.roomId);
+            console.error('Missing encryptionKey:', !urlData.encryptionKey);
+            showError('Invalid room link. Missing room ID or encryption key.');
+            return;
+        }
+
+        if (!urlData.roomId || !urlData.encryptionKey) {
+            console.error('FAILED: Missing roomId or encryptionKey'); 
+            showError('Invalid bench link. Missing room ID or encryption key.');
+            return;
+        }
+      
+      roomId = urlData.roomId;
+      encryptionKey = urlData.encryptionKey;
+      adminToken = urlData.adminToken;
+      
+      console.log('Room ID:', roomId);
+      console.log('Has encryption key:', !!encryptionKey);
+      console.log('Has admin token:', !!adminToken);
+      
+      //if user has admin token, show delete button
+      if (adminToken) {
+        deleteRoomBtn.classList.remove('hidden');
+      }
+      
+      
+      displayName = prompt('What name do they know you by?') || 'Anonymous';
+      
+      if (!displayName.trim()) {
+        displayName = 'Anonymous';
+      }
+      
+      console.log('Display name:', displayName);
+      
+      // start connection to WS
+      connectWebSocket();
+    }
+    
+    //ws connection
+    
+    function connectWebSocket() {
+      // determine WS URL 
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'; 
+      const wsUrl = `${protocol}//${window.location.host}`;
+      
+      console.log('Connecting to WebSocket:', wsUrl);
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        
+        //joining room
+        ws.send(JSON.stringify({
+          type: 'join',
+          room_id: roomId
+        }));
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        showError('Connection error. Please check your internet connection.');
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket closed');
+        isConnected = false;
+        addSystemMessage('Disconnected from bench');
+      };
+    }
+    
+// How ws handles messages
+    
+    function handleWebSocketMessage(data) {
+      console.log('Received:', data);
+      
+      switch (data.type) {
+        case 'joined':
+          handleJoined(data);
+          break;
+        case 'user_joined':
+          handleUserJoined(data);
+          break;
+        case 'user_left':
+          handleUserLeft(data);
+          break;
+        case 'message':
+          handleMessage(data);
+          break;
+        case 'new_image':
+          handleNewImage(data);
+          break;
+        case 'room_deleted':
+          handleRoomDeleted();
+          break;
+        case 'error':
+          showError(data.message);
+          break;
+        default:
+          console.log('Unknown message type:', data.type);
+      }
+    }
+    
+    function handleJoined(data) {
+      console.log('Successfully joined room');
+      isConnected = true;
+      
+      // hide loading, show interface
+      loadingState.classList.add('hidden');
+      roomInterface.classList.remove('hidden');
+      
+      // update the active user count
+      updateUserCount(data.count);
+      
+      // add system messages
+      addSystemMessage('You joined the bench');
+      
+      // focus on the  input
+      messageInput.focus();
+    }
+    
+    function handleUserJoined(data) {
+      updateUserCount(data.count);
+      addSystemMessage('Someone joined the bench');
+    }
+    
+    function handleUserLeft(data) {
+      updateUserCount(data.count);
+      addSystemMessage('Someone left the bench');
+    }
+    
+    function handleMessage(data) {
+      // message decryption
+      const decrypted = decryptMessage(data.encrypted_data, encryptionKey);
+      
+      if (!decrypted) {
+        console.error('Failed to decrypt message');
+        return;
+      }
+      
+      // show the decrypted message
+      addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
+    }
+    
+    async function handleNewImage(data) {
+     
+      console.log('New image notification:', data);
+
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message';
+      loadingDiv.innerHTML = `
+        <div class = "message-sender">Image</div>
+        <dive class = "image-loading">Loading image...</div>`;
+      messagesContainer.appendChild(loadingDiv);
+      scrollToBottom();
+      
+      try {
+        const response = await fetch(`/api/download/${data.file_id}`);
+
+        if (!response.ok) {
+            throw new Error('Failed to download image');
+        }
+
+        const responseData = await response.json();
+
+        const imageBlob = decryptImage(
+            responseData.encrypted_data,
+            encryptionKey,
+            responseData.metadata.mime_type
+        );
+
+        if (!imageBlob) {
+            throw new Error('Failed to decrypt image');
+        }
+
+        const imageUrl = URL.createObjectURL(imageBlob);
+
+        loadingDiv.innerHTML = `
+        <div class = "message-sender">Image</div>
+        <img
+            src="${imageUrl}"
+            class="message-image"
+            alt="${escapeHtml(data.metadata.filename)}"
+            onclick="window.open(this.src)">
+        <div class="message-time">${data.metadata.filename} (${formatFileSize(data.metadata.size)})</div>`;
+      }catch (error) {
+        console.error('Error loading image:',error);
+        loadingDiv.innerHTML = `
+        <div class = "message-sender">Image</div>
+        <div class = "image-loading">❌ Failed to load image</div>`;
+      }
+    }
+    
+    function handleRoomDeleted() {
+      showError('This bench has been deleted by the creator.');
+      ws.close();
+    }
+    
+   //UI helper functions
+    
+    function updateUserCount(count) {
+      const text = count === 1 ? '1 person here' : `${count} people here`;
+      userCount.textContent = text;
+    }
+    
+    function addSystemMessage(text) {
+      const div = document.createElement('div');
+      div.className = 'system-message';
+      div.textContent = text;
+      messagesContainer.appendChild(div);
+      scrollToBottom();
+    }
+    
+    function addMessage(sender, text, timestamp) {
+      const div = document.createElement('div');
+      div.className = 'message';
+      
+      const time = new Date(timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      div.innerHTML = `
+        <div class="message-sender">${escapeHtml(sender)}</div>
+        <div class="message-content">${escapeHtml(text)}</div>
+        <div class="message-time">${time}</div>
+      `;
+      
+      messagesContainer.appendChild(div);
+      scrollToBottom();
+    }
+    
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function showError(message) {
+      errorText.textContent = message;
+      loadingState.classList.add('hidden');
+      roomInterface.classList.add('hidden');
+      errorState.classList.remove('hidden');
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + 'B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1)+' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+// sending messages
+    
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      
+      if (!text || !isConnected) {
+        return;
+      }
+      
+      // making the  message object
+      const messageObj = {
+        sender: displayName,
+        text: text,
+        timestamp: Date.now()
+      };
+      
+      // encryption 
+      const encrypted = encryptMessage(messageObj, encryptionKey);
+      
+      // and send via WS
+      ws.send(JSON.stringify({
+        type: 'message',
+        room_id: roomId,
+        encrypted_data: encrypted
+      }));
+      
+      // clear input
+      messageInput.value = '';
+      messageInput.style.height = 'auto';
+    }
+
+    async function sendImage(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Only images are allowed to send in Benchtalks (for the moment at least)!');
+            return;
+        }
+
+        const MAX_SIZE = 10 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            alert('Image too large. Maximum size is 10MB!');
+            return;
+        }
+
+        // const loadingDiv = document.createElement('div');
+        // loadingDiv.className = 'message';
+        // loadingDiv.innerHTML = `
+        //     <div class="message-sender">You</div>
+        //     <div class="image-loading">Encrypting and uploading...</div>`;
+        // messagesContainer.appendChild(loadingDiv);
+        // scrollToBottom();
+
+        try {
+            
+            const encryptedData = await encryptImage(file, encryptionKey);
+            console.log('Encrypted image size:', encryptedData.length);
+
+            const response = await fetch ('/api/upload', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    room_id: roomId,
+                    encrypted_data: encryptedData,
+                    metadata: {
+                        filename: file.name,
+                        size: file.size,
+                        mime_type: file.type
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const data = await response.json();
+            console.log('Upload response:', data);
+
+            ws.send(JSON.stringify({
+                type: 'image_notification',
+                room_id: roomId,
+                file_id: data.file_id,
+                metadata: data.metadata
+            }));
+
+            const imageBlob = decryptImage(encryptedData, encryptionKey, file.type);
+            const imageUrl = URL.createObjectURL(imageBlob);
+
+            loadingDiv.innerHTML = `
+                <div class="message-sender">You</div>
+                <img
+                    src="${imageUrl}"
+                    class="message-image"
+                    alt="${escapeHtml(file.name)}"
+                    onclick="window.open(this.src)">
+                <div class="message-time">${file.name} (${formatFileSize(file.size)})</div>`;
+        }catch (error) {
+            console.error('Error uploading image:',error);
+            loadingDiv.innerHTML = `
+                <div class="message-sender">You</div>
+                <div class="image-loading">❌ Failed to upload image</div>`;
+        }
+    }
+    
+    //event listeners
+    
+    sendBtn.addEventListener('click', sendMessage);
+    
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    
+    
+    messageInput.addEventListener('input', () => {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = messageInput.scrollHeight + 'px';
+    });
+
+    attachBtn.addEventListener('click', () => {
+        imageInput.click();
+    });
+    
+    imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            sendImage(file);
+        }
+        
+        imageInput.value = '';
+    });
+    
+    // deleting the room
+    deleteRoomBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to delete this bench? Everyone will be kicked out.')) {
+        return;
+      }
+
+      console.log('Deleting room...');
+      console.log('roomId:', roomId);
+      console.log('adminToken:', adminToken);
+      console.log('adminToken length:', adminToken ? adminToken.length : 0);
+      
+      try {
+        const response = await fetch(`/api/room/${roomId}`, {
+          method: 'DELETE',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ admin_token: adminToken })
+        });
+
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+          alert('Bench deleted successfully');
+          window.location.href = '/';
+        } else {
+            const errorData = await response.json();
+          console.error('Delete error:', errorData);
+          alert('Failed to delete bench: ' + (errorData.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error deleting bench:', error);
+        alert('Failed to delete bench');
+      }
+    });
+    
+    init();
+  </script>
+</body>
+</html>
