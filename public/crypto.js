@@ -186,7 +186,7 @@ function base64UrlToBase64(base64url) {
     return base64;
 }
 
-//Now, parsing to get the key and admin token
+//now, parsing to get the key and admin token
 function parseRoomURL() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');

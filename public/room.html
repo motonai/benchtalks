@@ -374,42 +374,45 @@
     //room start
     
     function init() {
-            //debugging: Loging the raw parts from url
-        console.log('=== DEBUGGING URL PARSING ===');
-        console.log('Full URL:', window.location.href);
-        console.log('Search (query):', window.location.search);
-        console.log('Hash (fragment):', window.location.hash);
+        
+        // console logs until line 520 are for debugging purposes.
+        // console.log('=== DEBUGGING URL PARSING ===');
+        // console.log('Full URL:', window.location.href);
+        // console.log('Search (query):', window.location.search);
+        // console.log('Hash (fragment):', window.location.hash);
 
   
       
         //read URL
       const urlData = parseRoomURL();
+
+
       
-        console.log('=== PARSED DATA ===');
-        console.log('urlData:', urlData);
-        console.log('roomId:', urlData.roomId);
-        console.log('roomId type:', typeof urlData.roomId);
-        console.log('encryptionKey:', urlData.encryptionKey);
-        console.log('encryptionKey type:', typeof urlData.encryptionKey);
-        console.log('adminToken:', urlData.adminToken);
+        // console.log('=== PARSED DATA ===');
+        // console.log('urlData:', urlData);
+        // console.log('roomId:', urlData.roomId);
+        // console.log('roomId type:', typeof urlData.roomId);
+        // console.log('encryptionKey:', urlData.encryptionKey);
+        // console.log('encryptionKey type:', typeof urlData.encryptionKey);
+        // console.log('adminToken:', urlData.adminToken);
   
         // Check each condition separately
-        console.log('=== VALIDATION ===');
-        console.log('Has roomId?', !!urlData.roomId);
-        console.log('Has encryptionKey?', !!urlData.encryptionKey);
-        console.log('roomId is truthy?', urlData.roomId ? true : false);
-        console.log('encryptionKey is truthy?', urlData.encryptionKey ? true : false);
+        // console.log('=== VALIDATION ===');
+        // console.log('Has roomId?', !!urlData.roomId);
+        // console.log('Has encryptionKey?', !!urlData.encryptionKey);
+        // console.log('roomId is truthy?', urlData.roomId ? true : false);
+        // console.log('encryptionKey is truthy?', urlData.encryptionKey ? true : false);
   
         if (!urlData.roomId || !urlData.encryptionKey) {
-            console.error('VALIDATION FAILED!');
-            console.error('Missing roomId:', !urlData.roomId);
-            console.error('Missing encryptionKey:', !urlData.encryptionKey);
+            // console.error('VALIDATION FAILED!');
+            // console.error('Missing roomId:', !urlData.roomId);
+            // console.error('Missing encryptionKey:', !urlData.encryptionKey);
             showError('Invalid room link. Missing room ID or encryption key.');
             return;
         }
 
         if (!urlData.roomId || !urlData.encryptionKey) {
-            console.error('FAILED: Missing roomId or encryptionKey'); 
+            // console.error('FAILED: Missing roomId or encryptionKey'); 
             showError('Invalid bench link. Missing room ID or encryption key.');
             return;
         }
@@ -418,11 +421,11 @@
       encryptionKey = urlData.encryptionKey;
       adminToken = urlData.adminToken;
       
-      console.log('Room ID:', roomId);
-      console.log('Has encryption key:', !!encryptionKey);
-      console.log('Has admin token:', !!adminToken);
+      // console.log('Room ID:', roomId);
+      // console.log('Has encryption key:', !!encryptionKey);
+      // console.log('Has admin token:', !!adminToken);
       
-      //if user has admin token, show delete button
+      
       if (adminToken) {
         deleteRoomBtn.classList.remove('hidden');
       }
@@ -434,7 +437,7 @@
         displayName = 'Anonymous';
       }
       
-      console.log('Display name:', displayName);
+      // console.log('Display name:', displayName);
       
       // start connection to WS
       connectWebSocket();
@@ -447,7 +450,7 @@
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'; 
       const wsUrl = `${protocol}//${window.location.host}`;
       
-      console.log('Connecting to WebSocket:', wsUrl);
+      // console.log('Connecting to WebSocket:', wsUrl);
       
       ws = new WebSocket(wsUrl);
       
@@ -472,7 +475,7 @@
       
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        showError('Connection error. Please check your internet connection.');
+        showError('Connection error. Please check your internet connection.'); //need to work on error handling
       };
       
       ws.onclose = () => {
@@ -482,7 +485,7 @@
       };
     }
     
-// How ws handles messages
+// how does ws handle messages?
     
     function handleWebSocketMessage(data) {
       console.log('Received:', data);
@@ -515,7 +518,7 @@
     }
     
     function handleJoined(data) {
-      console.log('Successfully joined room');
+      // console.log('Successfully joined room');
       isConnected = true;
       
       // hide loading, show interface
@@ -525,10 +528,10 @@
       // update the active user count
       updateUserCount(data.count);
       
-      // add system messages
+      
       addSystemMessage('You joined the bench');
       
-      // focus on the  input
+      // focus on the  input when entering. accessibility ++ or possible downside. Definitely checking it later.
       messageInput.focus();
     }
     
@@ -551,13 +554,13 @@
         return;
       }
       
-      // show the decrypted message
+      // showing the decrypted message
       addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
     }
     
     async function handleNewImage(data) {
      
-      console.log('New image notification:', data);
+      // console.log('New image notification:', data); 
 
       const loadingDiv = document.createElement('div');
       loadingDiv.className = 'message';
@@ -708,7 +711,7 @@
             alert('Image too large. Maximum size is 10MB!');
             return;
         }
-
+        //no need for this since it's broadcasted, but good material for education either way.
         // const loadingDiv = document.createElement('div');
         // loadingDiv.className = 'message';
         // loadingDiv.innerHTML = `
