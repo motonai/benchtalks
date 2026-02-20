@@ -66,10 +66,6 @@ db.exec(`
     app.use(express.json({ limit: '15mb'}));
     app.use(express.static('public')); //So that statics can be served
 
-    // Fallback route for SPA
-    app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
 
     //endpoints
 
@@ -220,6 +216,11 @@ db.exec(`
             console.error('Error deleting room:', error);
             res.status(500).json({error: 'Failed to delete room'});
         }
+    });
+
+    // Fallback route for SPA
+    app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
     //Websocket
