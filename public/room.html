@@ -489,13 +489,16 @@
       
       // console.log('Display name:', displayName); for debug
       
-      // initSound();
+      initSound();
     
-      // const savedSoundPref = localStorage.getItem('soundEnabled');
-      // if (savedSoundPref !== null) {
-      //   soundEnabled = savedSoundPref === 'true';
-      //   document.getElementById('soundToggle').checked = soundEnabled;
-      // }
+      const soundToggle = document.getElementById('soundToggle');
+      if (soundToggle) {
+        const savedPref = localStorage.getItem('soundEnabled');
+        if (savedPref !== null) {
+          soundEnabled = savedPref === 'true';
+          soundToggle.checked = soundEnabled;
+        }
+      } //Check aspects of defensive programming in JS
 
       // start connection to WS
       connectWebSocket();
