@@ -407,6 +407,7 @@
         console.error('Failed to load notification sound:', error)
       }
     }
+
    //doms
     
     const loadingState = document.getElementById('loadingState');
@@ -474,13 +475,6 @@
       // console.log('Has encryption key:', !!encryptionKey);
       // console.log('Has admin token:', !!adminToken);
       
-      initSound();
-
-      const saveSoundPref = localStorage.getItem('soundEnabled');
-      if (savedSoundPref !== null) {
-        soundEnabled = savedSoundPref === 'true';
-        document.getElementById('soundToggle').checked = soundEnabled;
-      }
 
       if (adminToken) {
         deleteRoomBtn.classList.remove('hidden');
@@ -493,8 +487,16 @@
         displayName = 'Anonymous';
       }
       
-      // console.log('Display name:', displayName);
+      // console.log('Display name:', displayName); for debug
       
+      initSound();
+    
+      const savedSoundPref = localStorage.getItem('soundEnabled');
+      if (savedSoundPref !== null) {
+        soundEnabled = savedSoundPref === 'true';
+        document.getElementById('soundToggle').checked = soundEnabled;
+      }
+
       // start connection to WS
       connectWebSocket();
     }
