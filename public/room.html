@@ -489,13 +489,13 @@
       
       // console.log('Display name:', displayName); for debug
       
-      initSound();
+      // initSound();
     
-      const savedSoundPref = localStorage.getItem('soundEnabled');
-      if (savedSoundPref !== null) {
-        soundEnabled = savedSoundPref === 'true';
-        document.getElementById('soundToggle').checked = soundEnabled;
-      }
+      // const savedSoundPref = localStorage.getItem('soundEnabled');
+      // if (savedSoundPref !== null) {
+      //   soundEnabled = savedSoundPref === 'true';
+      //   document.getElementById('soundToggle').checked = soundEnabled;
+      // }
 
       // start connection to WS
       connectWebSocket();
