@@ -297,6 +297,21 @@
       0%, 100% {opacity: 0.4;}
       50% {opacity: 0.8;}
     }
+
+    #soundToggle {
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    #soundToggle:checked {
+      accent-color: #e0e0e0;
+    }
+
+    @media (prefers-color-scheme: light) {
+      #soundToggle:checked {
+        accent-color: #1a1a1a;
+      }
+    }
   </style>
 </head>
 <body>
@@ -321,6 +336,10 @@
         <h2>🪑 BenchTalks</h2>
         <div class="room-status">
           <span id="userCount">0 people here</span>
+          <label style="margin-left: 16px; font-size: 0.85rem; cursor: pointer;">
+            <input type = "checkbox" id="soundToggle" checked>
+            🔔 Sound
+          </label>
         </div>
       </div>
       <div class="room-actions">
@@ -371,7 +390,23 @@
     let typingTimeout = null;
     let isTyping = false;
     const typingUsers = new Set();
-    
+    let notificationSound = null;
+    let soundEnabled = true;
+
+    //first loads the page, then the sound is enabled
+    function initSound() {
+      try {
+        notificationSound = new Audio('/sounds/notification.mp3');
+        notificationSound.volume = 0.6;
+
+        //preloading for less latency
+        notificationSound.load();
+
+        console.log('Notification sound loaded'); //debugging and testing
+      } catch (error) {
+        console.error('Failed to load notification sound:', error)
+      }
+    }
    //doms
     
     const loadingState = document.getElementById('loadingState');
@@ -439,7 +474,14 @@
       // console.log('Has encryption key:', !!encryptionKey);
       // console.log('Has admin token:', !!adminToken);
       
-      
+      initSound();
+
+      const saveSoundPref = localStorage.getItem('soundEnabled');
+      if (savedSoundPref !== null) {
+        soundEnabled = savedSoundPref === 'true';
+        document.getElementById('soundToggle').checked = soundEnabled;
+      }
+
       if (adminToken) {
         deleteRoomBtn.classList.remove('hidden');
       }
@@ -573,7 +615,12 @@
         console.error('Failed to decrypt message');
         return;
       }
+
+      if (decrypted.sender !== displayName) {
+        playNotificationSound();
+      }
       
+      if (!decrypted) {}
       // showing the decrypted message
       addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
     }
@@ -701,6 +748,26 @@
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
     
+    function playNotificationSound() {
+      if (!soundEnabled) {
+        return;
+      }
+
+      if (!notificationSound) {
+        console.warn('Notification sound not loaded');
+        return;
+      }
+
+      if (!document.hidden) {
+        return; //when the tab is active, sounds will not be played.
+      }
+
+      notificationSound.currentTime = 0; //from the start
+      notificationSound.play().catch(error => {
+        console.log('Sound playback blocked:', error);
+      });
+    }
+
     function showError(message) {
       errorText.textContent = message;
       loadingState.classList.add('hidden');
@@ -837,6 +904,19 @@
     
     sendBtn.addEventListener('click', sendMessage);
     
+    const soundToggle = document.getElementById('soundToggle');
+    soundToggle.addEventListener('change', (e) => {
+      soundEnabled = e.targer.checked;
+
+      localStorage.setItem('soundEnabled', soundEnabled);
+      console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
+
+      if (soundEnabled && notificationSound) {
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(() => {});
+      }
+    });
+
     messageInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
