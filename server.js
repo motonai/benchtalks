@@ -33,6 +33,7 @@ db.exec(`
     filepath TEXT NOT NULL,
     filename TEXT NOT NULL,
     size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE CASCADE);
     
@@ -48,7 +49,7 @@ db.exec(`
     }
     //encrypt admin token for storage
     function hashToken(token) {
-        return crypto.createHash('sha256').update(token).digest('hex');
+        return crypto.createHash('sha256').update(tokenBytes).digest('hex');
     }
 
     //Does the file for uploads exist?
@@ -76,7 +77,7 @@ db.exec(`
         }
 
         try {
-            const stmt = db.prepare('INSERT INTO rooms (room_id, admin_token_hash) VALUES (?, ?)');
+            const stmt = db.prepare(`INSERT INTO rooms (room_id, admin_token_hash) VALUES (?, ?)`);
             stmt.run(room_id, admin_token_hash);
 
             console.log(`Room created: ${room_id}`);
@@ -165,7 +166,7 @@ db.exec(`
     });
 
     //room deleting
-    app.delete('api/room/:room_id',(req,res) => {
+    app.delete('/api/room/:room_id',(req,res) => {
         const {room_id} = req.params;
         const {admin_token} = req.body;
 
@@ -264,12 +265,12 @@ db.exec(`
             //Add to room
             ws.room_id = room_id;
             if(!rooms.has(room_id)){
-                rooms.set(room.id, []);
+                rooms.set(room_id, []);
             }
             rooms.get(room_id).push(ws);
 
             //latest activity
-            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?');
+            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?').run(room_id);
 
             //Confirm
             const count = rooms.get(room_id).length;
@@ -285,7 +286,7 @@ db.exec(`
             const {room_id, encrypted_data} = data;
 
             //update latest activity
-            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?');
+            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?').run(room_id);
 
             
             broadcastToRoom(room_id, {type: 'message', encrypted_data});

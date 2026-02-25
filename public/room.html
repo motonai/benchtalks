@@ -911,7 +911,7 @@
     
     const soundToggle = document.getElementById('soundToggle');
     soundToggle.addEventListener('change', (e) => {
-      soundEnabled = e.targer.checked;
+      soundEnabled = e.target.checked;
 
       localStorage.setItem('soundEnabled', soundEnabled);
       console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
