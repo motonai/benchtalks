@@ -49,6 +49,7 @@ db.exec(`
     }
     //encrypt admin token for storage
     function hashToken(token) {
+        const tokenBytes = Buffer.from(token, 'base64');
         return crypto.createHash('sha256').update(tokenBytes).digest('hex');
     }
 
