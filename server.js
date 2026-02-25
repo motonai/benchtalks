@@ -33,7 +33,6 @@ db.exec(`
     filepath TEXT NOT NULL,
     filename TEXT NOT NULL,
     size INTEGER NOT NULL,
-    mime_type TEXT NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE CASCADE);
     
@@ -49,8 +48,7 @@ db.exec(`
     }
     //encrypt admin token for storage
     function hashToken(token) {
-        const tokenBytes = Buffer.from(token, 'base64');
-        return crypto.createHash('sha256').update(tokenBytes).digest('hex');
+        return crypto.createHash('sha256').update(token).digest('hex');
     }
 
     //Does the file for uploads exist?
@@ -63,9 +61,9 @@ db.exec(`
     const app = express();
     const server = http.createServer(app);
 
+    
     app.use(express.json({ limit: '15mb'}));
     app.use(express.static('public')); //So that statics can be served
-
 
     //endpoints
 
@@ -167,14 +165,9 @@ db.exec(`
     });
 
     //room deleting
-    app.delete('/api/room/:room_id',(req,res) => {
+    app.delete('api/room/:room_id',(req,res) => {
         const {room_id} = req.params;
         const {admin_token} = req.body;
-
-        console.log('=== DELETE ROOM REQUEST ===');
-        console.log('room_id:', room_id);
-        console.log('admin_token received:', admin_token);
-        console.log('admin_token length:', admin_token ? admin_token.length : 0);
 
         if (!admin_token) {
             return res.status(400).json({error: 'Missing admin_token'});
@@ -185,13 +178,6 @@ db.exec(`
             if(!room) {
                 return res.status(404).json({error: 'Room not found'});
             }
-
-            console.log('Stored admin_token_hash:', room.admin_token_hash)
-
-            const receivedHash = hashToken(admin_token);
-            console.log('Received token hashed:', receivedHash);
-            console.log('Hashes match?:', receivedHash === room.admin_token_hash);
-
             //admin verification
             if(hashToken(admin_token) !== room.admin_token_hash) {
                 return res.status(403).json({error:'Invalid admin token'});
@@ -218,11 +204,6 @@ db.exec(`
         }
     });
 
-    // Fallback route for SPA
-    app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-
     //Websocket
 
     const wss = new WebSocketServer({server});
@@ -242,6 +223,18 @@ db.exec(`
                         break;
                     case 'message':
                         handleMessage(ws, data);
+                        break;
+                    case 'typing_start':
+                        broadcastToRoom(data.room_id,{
+                            type:'typing_start',
+                            username: data.username
+                        }, ws);
+                        break;
+                    case 'typing_stop':
+                        broadcastToRoom(data.room_id, {
+                            type: 'typing_stop',
+                            username: data.username
+                        }, ws);
                         break;
                     case 'image_notification':
                         handleImageNotification(ws, data);
@@ -271,12 +264,12 @@ db.exec(`
             //Add to room
             ws.room_id = room_id;
             if(!rooms.has(room_id)){
-                rooms.set(room_id, []);
+                rooms.set(room.id, []);
             }
             rooms.get(room_id).push(ws);
 
             //latest activity
-            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?').run(room_id);
+            db.prepare('UPDATE rooms SET last_activity = CURRENT_TIMESTAMP WHERE room_id = ?');
 
             //Confirm
             const count = rooms.get(room_id).length;

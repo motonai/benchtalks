@@ -287,6 +287,16 @@
     .hidden {
       display: none;
     }
+
+    #typingIndicator {
+      font-style: italic;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {opacity: 0.4;}
+      50% {opacity: 0.8;}
+    }
   </style>
 </head>
 <body>
@@ -322,6 +332,7 @@
     
     <div id="messagesContainer" class="messages-container">
       <!-- where the messages should appear -->
+       <div id="typingIndicator" class="system-message" style="display: none;"></div>
     </div>
 
     
@@ -357,6 +368,9 @@
     let displayName = null;
     let ws = null;
     let isConnected = false;
+    let typingTimeout = null;
+    let isTyping = false;
+    const typingUsers = new Set();
     
    //doms
     
@@ -503,6 +517,12 @@
         case 'message':
           handleMessage(data);
           break;
+        case 'typing_start':
+          handleTypingStart(data);
+          break;
+        case 'typing_stop':
+          handleTypingStop(data);
+          break;
         case 'new_image':
           handleNewImage(data);
           break;
@@ -611,6 +631,37 @@
       showError('This bench has been deleted by the creator.');
       ws.close();
     }
+
+    function handleTypingStart(data) {
+      typingUsers.add(data.username);
+      updateTypingDisplay();
+    }
+
+    function handleTypingStop(data) {
+      typingUsers.delete(data.username);
+      updateTypingDisplay();
+    }
+
+    function updateTypingDisplay() {
+      const indicator = document.getElementById('typingIndicator');
+
+      if (typingUsers.size === 0) {
+        indicator.style.display = 'none';
+        return;
+      }
+
+      indicator.style.display = 'block';
+
+      const names = Array.from(typingUsers);
+
+      if (names.length === 1) {
+        indicator.textContent = `${names[0]} is typing...`;
+      } else if (names.length === 2) {
+        indicator.textContent = `${names[0]} and ${names[1]} are typing...`;
+      }else {
+        indicator.textContent = `${names.length} people are typing...`;
+      }
+    }
     
    //UI helper functions
     
@@ -698,6 +749,16 @@
       // clear input
       messageInput.value = '';
       messageInput.style.height = 'auto';
+
+      if(isTyping) {
+        isTyping = false;
+        clearTimeout(typingTimeout);
+        ws.send(JSON.stringify({
+          type:'typing_stop',
+          room_id: roomId,
+          username: displayName
+        }));
+      }
     }
 
     async function sendImage(file) {
@@ -787,6 +848,27 @@
     messageInput.addEventListener('input', () => {
       messageInput.style.height = 'auto';
       messageInput.style.height = messageInput.scrollHeight + 'px';
+      
+      if(!isTyping && isConnected) {
+        isTyping = true;
+        ws.send(JSON.stringify({
+          type: 'typing_start',
+          room_id: roomId,
+          username: displayName
+        }));
+      }
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        if (isTyping) {
+          isTyping = false;
+          ws.send(JSON.stringify({
+            type: 'typing_stop',
+            room_id: roomId,
+            username: displayName
+          }));
+        }
+      }, 1000);
     });
 
     attachBtn.addEventListener('click', () => {
