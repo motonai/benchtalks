@@ -142,7 +142,7 @@ func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 		return false
 	}
 
-	//close every client's send channel --writePump will catch this and disconnect
+	//close every client's send channel --writePump is a goroutine that will catch this and disconnect
 	room.mu.Lock()
 	for _, client := range room.clients {
 		close(client.send)
