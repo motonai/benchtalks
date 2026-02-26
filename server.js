@@ -19,10 +19,13 @@ const ROOM_EXPIRY_DAYS = parseInt(process.env.ROOM_EXPIRY_DAYS) || 30;
 //Database setup
 const db = new Database('database.db');
 
+
+
+
 db.exec(`
     CREATE TABLE IF NOT EXISTS rooms (
     room_id TEXT PRIMARY KEY,
-    admin_token_hash TEXT NOT NULL,
+    admin_token_hash TEXT NOT NULL, 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
     image_count INTEGER DEFAULT 0);
@@ -245,7 +248,7 @@ db.exec(`
                         console.log('Unknown message type:', data.type);
                     }
                 }   catch(error) {
-                console.error('Error handling WebSocket message:', error);
+                    console.error('Error handling WebSocket message:', error);
                 }
             });
             ws.on('close', () => {
