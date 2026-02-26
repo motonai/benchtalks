@@ -12,7 +12,7 @@ import (
 
 type Client struct {
 	id   string
-	conn *websocket.conn
+	conn *websocket.Conn
 	send chan []byte
 }
 
@@ -35,7 +35,7 @@ type Hub struct {
 // this functions is called once, when this whole thing starts, in main.go
 func NewHub() *Hub {
 	return &Hub{
-		room: make(map[string]*Room),
+		rooms: make(map[string]*Room),
 	}
 }
 
@@ -165,7 +165,7 @@ func verifyAdminToken(token, storedHash string) bool {
 	if err != nil {
 		return false
 	}
-	hash := sha256.Sum256(tokenBytes)
+	hash := sha256.Sum256(tokenBytes) //this can work only one way.
 	hexHash := hex.EncodeToString(hash[:])
 	return hexHash == storedHash
 }
