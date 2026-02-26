@@ -82,4 +82,31 @@ func (h *Hub) LeaveRoom(roomID string, client *Client) {
 	delete(room.clients, client.id)
 	isEmpty := len(room.clients) == 0
 	room.mu.Unlock()
+
+	if isEmpty {
+		h.mu.Lock()
+		delete(h.rooms, roomID)
+		h.mu.Unlock()
+	}
+}
+
+// Broadcasting a message sends it to everyone apart from the sender
+func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
+	h.mu.Lock()
+	room, exists := h.rooms[roomID]
+	h.mu.Unlock()
+
+	if !exists {
+		return
+	}
+
+	room.mu.Lock()
+	defer room.mu.Unlock()
+
+	for id, client := range room.clients {
+		if id == senderID {
+			continue //no going back to sender
+		}
+		//the meaning behind non-blocking send...
+	}
 }
