@@ -78,6 +78,9 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 func (c *Client) readPump(hub *Hub) {
 	var roomID string
 
+	//the roomID needs to start empty since we don't know where the client belongs to yet. SO when they send a message they tell us in which bench their seat is.
+	//But whatever happens we have the defer block guarantee: when readPump exits, it removes the seat from the bench tell the ones that are seating on the other seats that they left and closes the connection.
+	//Ότι και αν γίνει στον κόσμο αυτό... Θα μ'αγκαλιάσεις και θα σωθώ.🎶
 	defer func() {
 		if roomID != "" {
 			hub.LeaveRoom(roomID, c)
@@ -88,23 +91,31 @@ func (c *Client) readPump(hub *Hub) {
 		c.conn.Close()
 	}()
 
+	//Ποιος να ακούσει; Τι τον νοιάζει;; Αν εμένα η καρδιά ξεπαγιάζει! Παίρνω φίλους, παιρνώ εσένα... 🎶
+	//Read deadline  sets a timer for a minute. If nothing arives, readmessage errors out, breaking loop, defer runs, Ε Κ Κ Α Θ Α Ρ Ι Σ Ι Σ
+	//If a pong arrives the "conn.setponghandler" resets the timer. PING PONG TO INFINITY.
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
+	//ΑΝΑΠΑΝΤΗΤΕΣ ΚΛΗΣΕΙΣ ΠΑΝΤΟΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥ...🎶
+	////Main loopity bloop loop
 	for {
 		_, rawMessage, err := c.conn.ReadMessage()
 		if err != nil {
 			break
 		}
-
+		//when it reaches "readmessage" it waits. Then when a message arrives it parses it from json to "incomingmessage".
+		//If that doesn't work, the message gets skipped and it waits for the next one.
 		var msg IncomingMessage
 		if err := json.Unmarshal(rawMessage, &msg); err != nil {
 			continue
 		}
 
+		//The codeword is "join". This is how you make a bench, and the "defer" knows what to clean up afterwards.
+		//The seat gets registered in the park (kinda), and then everybody knows that somebody sat to the bench as them.
 		switch msg.Type {
 
 		case "join":
@@ -113,6 +124,7 @@ func (c *Client) readPump(hub *Hub) {
 			notify := buildOutgoing("join", "", c.id)
 			hub.Broadcast(roomID, c.id, notify)
 
+			//In the same way messages get handled, it handles images too. The server doesn't look inside the payloads/blobs.
 		case "message":
 			if roomID == "" {
 				continue
@@ -127,6 +139,8 @@ func (c *Client) readPump(hub *Hub) {
 			out := buildOutgoing("image", msg.Payload, c.id)
 			hub.Broadcast(roomID, c.id, out)
 
+			//This case  gets the "msg.payload" (admin token) to hub.DeleteRoom that does the "verifyadmintoken" inside hub.go.
+			// if the match is exact the "park" calls the tiny giant to pull the client's ears. Otherwise, they get an error.
 		case "delete":
 			if roomID == "" {
 				continue
