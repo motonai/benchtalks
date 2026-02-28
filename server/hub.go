@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 //This is a user/seat.
