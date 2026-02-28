@@ -155,6 +155,8 @@ func (c *Client) readPump(hub *Hub) {
 }
 
 // Mouths
+// The select works as a switch for channels. It waits for what is going to happen from the two, either for something to arrive in client.send or for the  ticker to fire.
+// Of the two go routines, it's the only one that calls  the WriteMessage function.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 
@@ -185,6 +187,9 @@ func (c *Client) writePump() {
 	}
 }
 
+//Helpers
+
+// Gets the fields below and creates an OutgoingMessage, makes it into JSON bytes.
 func buildOutgoing(msgType, payload, senderID string) []byte {
 	out := OutgoingMessage{
 		Type:     msgType,
