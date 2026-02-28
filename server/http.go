@@ -18,8 +18,15 @@ func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
 		panic("could not strip public/ prefix  from embedded files: " + err.Error())
 	}
 
+	fileServer := http.FileServer(http.FS(stripped))
+
 	//serve static files at root
-	mux.Handle("/", http.FileServer(http.FS(stripped)))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			r.URL.Path = "/index.html"
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 
 	//ws endpoint c:
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
