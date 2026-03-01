@@ -125,6 +125,7 @@ func (c *Client) readPump(hub *Hub) {
 			hub.JoinRoom(roomID, msg.AdminHash, c)
 			notify := buildOutgoing("join", "", c.id)
 			hub.Broadcast(roomID, c.id, notify)
+			log.Printf("JOIN: roomID=%s adminHash=%s", roomID, msg.AdminHash)
 
 			count := hub.RoomSize(roomID)
 			welcome := buildOutgoing("welcome", fmt.Sprintf("%d", count), c.id)

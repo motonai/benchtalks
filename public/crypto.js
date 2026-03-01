@@ -5,6 +5,17 @@ function generateEncryptionKey() {
 
 //The keygen will be used for everything that has to be encrypted (urls, messages, timestamps, etc.)
 
+// generates a random hex room ID — length is in bytes, so 16 bytes = 32 hex chars
+// uses nacl.randomBytes so it's cryptographically secure (same source as the key)
+function generateId(length) {
+    const bytes = nacl.randomBytes(length);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0');
+    }
+    return hex;
+}
+
 //https://en.wikipedia.org/wiki/Base64
 function keyToString(key) {
     return nacl.util.encodeBase64(key);

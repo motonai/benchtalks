@@ -58,6 +58,97 @@
       gap: 8px;
     }
     
+        
+    
+    .admin-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: #1a1a1a;
+        border: 1px solid #404040;
+        min-width: 200px;
+        z-index: 100;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .admin-dropdown {
+            background: #ffffff;
+            border-color: #d0d0d0;
+        }
+    }
+
+    .dropdown-item {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        text-align: left;
+        background: transparent;
+        border: none;
+        color: inherit;
+        font-family: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    .dropdown-item:hover {
+        background: #2a2a2a;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .dropdown-item:hover {
+            background: #f0f0f0;
+        }
+    }
+
+    .dropdown-item-danger {
+        color: #dc2626;
+    }
+
+    .dropdown-item-danger:hover {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    /* invite modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.3);
+        }
+    }
+
+    .modal-box {
+        background: #1a1a1a;
+        border: 1px solid #404040;
+        padding: 24px;
+        max-width: 480px;
+        width: 90%;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .modal-box {
+            background: #ffffff;
+            border-color: #d0d0d0;
+        }
+    }
+
+    .modal-box h3 {
+        margin-bottom: 4px;
+    }
+    
     .btn-small {
       padding: 8px 16px;
       font-size: 0.85rem;
@@ -312,6 +403,28 @@
         accent-color: #1a1a1a;
       }
     }
+
+    .link-container {
+        display: flex;
+        gap: 8px;
+    }
+
+    .link-container input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #404040;
+        background: transparent;
+        color: inherit;
+        font-family: inherit;
+        font-size: 0.85rem;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .link-container input {
+            border-color: #d0d0d0;
+        }
+    }
+
   </style>
 </head>
 <body>
@@ -342,11 +455,30 @@
           </label>
         </div>
       </div>
+
       <div class="room-actions">
-        <button id="deleteRoomBtn" class="btn-small btn-danger hidden">Delete Room</button>
+        <!-- admin dropdown — only visible if this client has the admin token -->
+        <div id="adminMenu" class="hidden" style="position: relative;">
+            <button id="adminMenuBtn" class="btn-small">Admin ▾</button>
+            <div id="adminDropdown" class="admin-dropdown hidden">
+                <button class="dropdown-item" id="inviteBtn"
+                    title="Share this bench with others">
+                    👥 Invite people
+                </button>
+                <button class="dropdown-item" id="newBenchBtn"
+                    title="Create a new bench and open it in a new tab">
+                    🪑 Create new bench
+                </button>
+                <button class="dropdown-item dropdown-item-danger" id="deleteBenchBtn"
+                    title="Permanently delete this bench for everyone">
+                    🗑️ Delete this bench
+                </button>
+            </div>
+        </div>
+
         <button onclick="location.href='/'" class="btn-small">Leave</button>
       </div>
-    </div>
+    </div><!-- end room-header -->
 
     
     <div id="messagesContainer" class="messages-container">
@@ -370,6 +502,22 @@
       ></textarea>
       <button id="sendBtn">Send</button>
     </div>
+  </div><!-- end roomInterface -->
+
+  <!-- invite modal — hidden until admin clicks Invite -->
+  <!-- lives at body level so position:fixed covers the whole page -->
+  <div id="inviteModal" class="modal-overlay hidden">
+      <div class="modal-box">
+          <h3>Invite people</h3>
+          <p style="font-size: 0.85rem; opacity: 0.7; margin: 8px 0 12px;">
+          Share this link. Anyone with it can join the bench.
+          </p>
+          <div class="link-container">
+              <input type="text" id="inviteLinkInput" readonly>
+              <button id="copyInviteBtn" class="btn-small">Copy</button>
+          </div>
+          <button id="closeModalBtn" class="btn-small" style="margin-top: 12px;">Close</button>
+      </div>
   </div>
 
   <!--dependencies -->
@@ -406,6 +554,93 @@
       }
     }
 
+    //*new* Admin Dropdown
+
+    const adminMenu = document.getElementById('adminMenu');
+    const adminMenuBtn = document.getElementById('adminMenuBtn');
+    const adminDropdown = document.getElementById('adminDropdown');
+    const inviteModal = document.getElementById('inviteModal');
+    const inviteLinkInput = document.getElementById('inviteLinkInput');
+    const copyInviteBtn = document.getElementById('copyInviteBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const newBenchBtn = document.getElementById('newBenchBtn');
+    const deleteBenchBtn = document.getElementById('deleteBenchBtn');
+    const inviteBtn = document.getElementById('inviteBtn');
+
+    //togglin and boppin
+    adminMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); //this prevents the document click handler from immediately closing it down (SENDING IT TO JAIL)
+        adminDropdown.classList.toggle('hidden');
+    });
+
+    //when user clicks outside of it, then it closes c:
+    document.addEventListener('click', () => {
+        adminDropdown.classList.add('hidden');
+    });
+
+    //Now it's going to build the shareable URL from the current room's id and key
+    //enc.key and room id are already in state + "buildRoomURL" (in crypto.js) builds the URL without admin token sh*t. 
+    // S U C C E S S
+    inviteBtn.addEventListener('click', () => {
+        adminDropdown.classList.add('hidden');
+        const shareableURL = buildRoomURL(roomId, encryptionKey);
+        inviteLinkInput.value = shareableURL;
+        inviteModal.classList.remove('hidden');
+    });
+
+    //copy *p l a i n* invite link
+    copyInviteBtn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(inviteLinkInput.value);
+            copyInviteBtn.textContent = 'Copied!';
+            setTimeout(() => { copyInviteBtn.textContent = 'Copy';}, 2000);
+        } catch {
+            inviteLinkInput.select();
+        }
+    });
+
+    //closing modal
+    closeModalBtn.addEventListener('click', () => {
+        inviteModal.classList.add('hidden');
+    });
+
+    //closing modal too, but this time when clicking the overlay bg
+    inviteModal.addEventListener('click', (e) => {
+        //closing if only they clicked the dark overlay, not the box inside
+        if (e.target === inviteModal) {
+            inviteModal.classList.add('hidden');
+        }
+    });
+
+    //this creates a new bench and opens it in a new tab
+    newBenchBtn.addEventListener('click', async () => {
+        adminDropdown.classList.add('hidden');
+
+        //generate everything fresh - same as index.html "createRoom"
+        //opening result in a new tab c:
+        const newRoomId = generateId(16);
+        const newKey = generateEncryptionKey();
+        const newAdminToken = generateAdminToken();
+        const newAdminURL = buildAdminURL(newRoomId, newKey, newAdminToken);
+
+        window.open(newAdminURL, '_blank');
+    });
+
+    //deleting the bench
+    deleteBenchBtn.addEventListener('click', () => {
+        adminDropdown.classList.add('hidden');
+
+        if (!confirm('Are you sure you want to delete this bench? Everyone will be kicked out.')) {
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'delete',
+            roomId: roomId,
+            payload: adminToken
+        }));
+    });
+
     //doms
     
     const loadingState = document.getElementById('loadingState');
@@ -416,7 +651,6 @@
     const messageInput = document.getElementById('messageInput');
     const sendBtn = document.getElementById('sendBtn');
     const userCount = document.getElementById('userCount');
-    const deleteRoomBtn = document.getElementById('deleteRoomBtn');
     const attachBtn = document.getElementById('attachBtn');
     const imageInput = document.getElementById('imageInput');
 
@@ -437,7 +671,8 @@
         adminToken = urlData.adminToken;
 
         if (adminToken) {
-            deleteRoomBtn.classList.remove('hidden');
+            // show the admin dropdown instead of the old delete button
+            adminMenu.classList.remove('hidden');
         }
       
         displayName = prompt('What name do they know you by?') || 'Anonymous';
@@ -530,7 +765,7 @@
                     // this is our own join confirmation
                     handleSelfJoined();
                 } else {
-                    // someone else joined
+                    userCount_n++;// someone else joined
                     updateUserCount(userCount_n);
                     addSystemMessage('Someone joined the bench');
                 }
@@ -542,6 +777,7 @@
                 userCount_n = Math.max(0, userCount_n - 1);
                 updateUserCount(userCount_n);
                 break;
+
             case 'welcome':
                 //server gives info on how many people are in the room at the moment
                 //Better than counting join/leave events
@@ -835,23 +1071,9 @@
         imageInput.value = '';
     });
     
-    // deleting the room
-    deleteRoomBtn.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to delete this bench? Everyone will be kicked out.')) {
-            return;
-        }
-
-        // send the real admin token as payload
-        // the server hashes it and compares to the stored hash
-        // if it matches, server closes all connections
-        ws.send(JSON.stringify({
-            type: 'delete',
-            roomId: roomId,
-            payload: adminToken
-        }));
-    });
     
     init();
   </script>
+
 </body>
 </html>

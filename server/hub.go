@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -142,8 +144,7 @@ func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
 //this one verifies the admin token hash and closes/deletes the room.
 //Since it's a bool out put, it's going to be true if the bench is gone or false if the admin token hash doesn't match.
 
-//REVISION of this one later after completing the file.
-
+// REVISION of this one later after completing the file.
 func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 	h.mu.Lock()
 	room, exists := h.rooms[roomID]
@@ -158,14 +159,29 @@ func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 		return false
 	}
 
-	//close every client's send channel --writePump is a goroutine that will catch this and disconnect
+	// send deleted message to everyone first, then wait for writePump to flush it
+	// before closing channels — otherwise the close frame races the deleted message
+	deletedMsg := buildOutgoing("deleted", "", "")
+	room.mu.Lock()
+	for _, client := range room.clients {
+		select {
+		case client.send <- deletedMsg:
+		default:
+		}
+	}
+	room.mu.Unlock()
+
+	// give writePump time to flush the deleted message before closing
+	time.Sleep(100 * time.Millisecond)
+
+	// now close all channels — writePump catches this and disconnects
 	room.mu.Lock()
 	for _, client := range room.clients {
 		close(client.send)
 	}
 	room.mu.Unlock()
 
-	//after send channels are closed meaning there are no clients connected anywhere, meaning that the seats have been used on the bench and nobody else can sit because nobody else knows about the bench, meaning that the tiny giant will take the bench away.
+	// tiny giant takes the bench away
 	h.mu.Lock()
 	delete(h.rooms, roomID)
 	h.mu.Unlock()
@@ -179,9 +195,16 @@ func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 func verifyAdminToken(token, storedHash string) bool {
 	tokenBytes, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
-		return false
+		tokenBytes, err = base64.RawStdEncoding.DecodeString(token)
+		if err != nil {
+			log.Printf("DECODE ERROR: %v | token was: %s", err, token)
+			return false
+		}
 	}
-	hash := sha256.Sum256(tokenBytes) //this can work only one way.
+	hash := sha256.Sum256(tokenBytes)
 	hexHash := hex.EncodeToString(hash[:])
+	log.Printf("TOKEN: %s", token)
+	log.Printf("COMPUTED HASH: %s", hexHash)
+	log.Printf("STORED HASH:   %s", storedHash)
 	return hexHash == storedHash
 }

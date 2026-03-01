@@ -147,10 +147,10 @@
                 currentShareableURL = shareableURL;
                 currentAdminURL = adminURL;
 
-                // show the links to user
-                shareableLink.value = shareableURL;
-                adminLink.value = adminURL;
-                showSection(linksSection);
+                // open the admin URL directly — the room gets created when
+                // the WebSocket join message arrives in room.html, not here.
+                // We redirect immediately so the admin lands in the room straight away.
+                window.location.href = adminURL;
 
             } catch (error) {
                 console.error('Error creating room', error);
