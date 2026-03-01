@@ -131,7 +131,7 @@ func (c *Client) readPump(hub *Hub) {
 			if roomID == "" {
 				continue
 			}
-			out := buildOutgoing("image", msg.Payload, c.id)
+			out := buildOutgoing("message", msg.Payload, c.id)
 			hub.Broadcast(roomID, c.id, out)
 
 		case "image":
