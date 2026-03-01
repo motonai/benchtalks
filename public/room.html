@@ -571,6 +571,7 @@
         // our join was acknowledged — show the chat interface
         isConnected = true;
         userCount_n = 1; //we are the first person the server knows about
+        updateUserCount(userCount_n);
         loadingState.classList.add('hidden');
         roomInterface.classList.remove('hidden');
         addSystemMessage('You joined the bench');
