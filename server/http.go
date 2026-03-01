@@ -10,30 +10,37 @@ import (
 func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
 	mux := http.NewServeMux()
 
-	//take off "public" as prefix removal and the /server/index.html is served as /index.html
-	//fs.Sub makes the "prefix" go away and it makes things get served from root, like the JS version.
+	// take off "public" as prefix so /public/index.html is served as /index.html
+	// fs.Sub makes the "prefix" go away and it makes things get served from root, like the JS version.
 	stripped, err := fs.Sub(staticFiles, "public")
 	if err != nil {
-		//if the filesystem embedded in, is broken, the server is going to have a tummy ache. So instead of pushing it to try again or start up and serve nothing, it's better to make it crash immidiatelly
-		panic("could not strip public/ prefix  from embedded files: " + err.Error())
+		// if the filesystem embedded in, is broken, the server is going to have a tummy ache.
+		// So instead of pushing it to try again or start up and serve nothing,
+		// it's better to make it crash immediately
+		panic("could not strip public/ prefix from embedded files: " + err.Error())
 	}
 
 	fileServer := http.FileServer(http.FS(stripped))
 
-	//serve static files at root
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			r.URL.Path = "/index.html"
-		}
-		fileServer.ServeHTTP(w, r)
-	})
-
-	//ws endpoint c:
+	// ws endpoint c:
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		ServeWS(hub, w, r)
+	})
+
+	// Go's file server auto-redirects /index.html → / which causes a loop.
+	// INTERCEPTION -EPTION -TION -ON *read it in echo voice* and send a 302 to /index.html explicitly.
+	// The browser follows it, requests /index.html directly,
+	// and the file server serves it without redirecting again.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "" {
+			http.Redirect(w, r, "/index.html", http.StatusFound)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
 	})
 
 	return mux
 }
 
-//since the go:embed directive needs to be in the same package as the variable that holds the files.
+// since the go:embed directive needs to be in the same package as the variable that holds the files,
+// the //go:embed line lives in main.go instead of here.
