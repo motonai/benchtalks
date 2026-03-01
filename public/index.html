@@ -68,7 +68,7 @@
                 <p>
                     🔒 End-to-end encrypted • 
                     No accounts required • 
-                    Rooms auto-delete after 30 days of inactivity
+                    Rooms auto-delete after 24 hours of inactivity
                 </p>
             </footer>
         </div>
@@ -115,89 +115,48 @@
                 showSection(errorSection);
             }
 
-            //room creation
-            async function createRoom() {
+            // room creation
+        async function createRoom() {
+            try {
+                showSection(loadingSection); // show the loading state
+                const roomId = generateId(16); // 32 chars hex string
+                const encryptionKey = generateEncryptionKey(); // 32 random bytes
+                const adminToken = generateAdminToken(); // base64 32 random bytes
+
+                const keyString = keyToString(encryptionKey);
+                const adminTokenHash = await hashAdminToken(adminToken);
+
+                // No POST to server needed anymore.
+                // The room is created automatically when the first WebSocket
+                // connection arrives in room.html with a "join" message.
+                // The adminTokenHash travels with that first join, not here.
+
+                // Build URLs
+                let shareableURL;
+                let adminURL;
                 try {
-                    showSection(loadingSection); //show the loading state
-
-                    const roomId = generateId(16); // 32 chars hex string
-                    const encryptionKey = generateEncryptionKey(); //32 random bytes
-                    const adminToken = generateAdminToken(); // base64 32 random bytes
-                    console.log('Generated adminToken:', adminToken);
-                    console.log('Generated adminToken length:', adminToken.length);
-
-                    console.log('Generated room_id:', roomId);
-                    console.log('Generated encryption key:', encryptionKey);
-                    console.log('encryptionKey type:', encryptionKey);
-                    console.log('encryptionKey length:', encryptionKey.length);
-                    console.log('Generated admin token (will be in URL fragment)');
-
-                    const keyString = keyToString(encryptionKey);
-                    console.log('keyString:', keyString);
-                    console.log('keyString length:', keyString.length);
-
-                    const adminTokenHash = await hashAdminToken(adminToken);
-                    console.log('Hashed admin token for server:', adminTokenHash);
-
-                    const response = await fetch('/api/create-room',{
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            room_id: roomId,
-                            admin_token_hash: adminTokenHash
-                        })
-
-                    });
-
-                    console.log('Response status:', response.status);
-                    console.log('Response ok:', response.ok);
-
-                    if (!response.ok) {
-                        const errorText = await response.text()
-                        console.error('Server error:', errorText);
-                        throw new Error('Failed to create room on server');
-                    }
-
-                    const data = await response.json();
-                    console.log('Server response:', data);
-
-                    // Build URLs
-                    console.log('About to build URLs...');
-                    console.log('roomId:', roomId);
-                    console.log('encryptionKey:', encryptionKey);
-                    console.log('adminToken:', adminToken);
-
-                    let shareableURL;
-                    let adminURL;
-
-                  try{  
-                        shareableURL = buildRoomURL(roomId, encryptionKey);
-                        console.log('Shareable URL:', shareableURL);
-
-                        adminURL = buildAdminURL(roomId, encryptionKey, adminToken);
-                        console.log('FullAdmin URL:', adminURL);
-                        console.log('Admin URL built with token:', adminToken);
-                    }catch(urlError) {
-                        console.error('Error building URLs:', urlError);
-                        throw urlError;
-                    }
-
-                    //store the state
-                    currentRoomId = roomId;
-                    currentShareableURL = shareableURL;
-                    currentAdminURL = adminURL;
-
-                    //show the links to user
-                    shareableLink.value = shareableURL;
-                    adminLink.value = adminURL;
-                    showSection(linksSection);
-                } catch (error) {
-                    console.error('Error creating room', error);
-                    showError('Failed to create room. Please check your internet connection and try again.');
+                    shareableURL = buildRoomURL(roomId, encryptionKey);
+                    adminURL = buildAdminURL(roomId, encryptionKey, adminToken);
+                } catch (urlError) {
+                    console.error('Error building URLs:', urlError);
+                    throw urlError;
                 }
+
+                // store the state
+                currentRoomId = roomId;
+                currentShareableURL = shareableURL;
+                currentAdminURL = adminURL;
+
+                // show the links to user
+                shareableLink.value = shareableURL;
+                adminLink.value = adminURL;
+                showSection(linksSection);
+
+            } catch (error) {
+                console.error('Error creating room', error);
+                showError('Failed to create room. Please check your internet connection and try again.');
             }
+        }
 
             //helper function for random id generation
             function generateId(length) {

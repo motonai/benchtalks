@@ -121,6 +121,15 @@ function decryptImage(encryptedBase64, key, mimeType) {
     }
 }
 
+// same as decryptImage but used when receiving images via WebSocket
+// instead of downloading from server — the encrypted blob arrives
+// directly in the message payload so we decrypt it straight away.
+// mimeType defaults to image/jpeg if not known — the browser
+// will usually figure out the real type from the bytes anyway.
+function decryptImageFromBase64(encryptedBase64, key, mimeType = 'image/jpeg') {
+    return decryptImage(encryptedBase64, key, mimeType);
+}
+
 //admin tokens
 
 //generation random tokens. it will show on urls but as a base64 string

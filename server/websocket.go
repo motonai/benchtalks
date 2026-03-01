@@ -100,6 +100,8 @@ func (c *Client) readPump(hub *Hub) {
 		return nil
 	})
 
+	c.conn.SetReadLimit(512 * 1024 * 1024) // 512MB max message size
+
 	//ΑΝΑΠΑΝΤΗΤΕΣ ΚΛΗΣΕΙΣ ΠΑΝΤΟΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥΥ...🎶
 	////Main loopity bloop loop
 	for {

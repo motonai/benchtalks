@@ -387,11 +387,9 @@
     let displayName = null;
     let ws = null;
     let isConnected = false;
-    let typingTimeout = null;
-    let isTyping = false;
-    const typingUsers = new Set();
     let notificationSound = null;
     let soundEnabled = true;
+    let userCount_n = 0;
 
     //first loads the page, then the sound is enabled
     function initSound() {
@@ -408,7 +406,7 @@
       }
     }
 
-   //doms
+    //doms
     
     const loadingState = document.getElementById('loadingState');
     const errorState = document.getElementById('errorState');
@@ -421,369 +419,284 @@
     const deleteRoomBtn = document.getElementById('deleteRoomBtn');
     const attachBtn = document.getElementById('attachBtn');
     const imageInput = document.getElementById('imageInput');
+
     //room start
     
     function init() {
-        
-        // console logs until line 520 are for debugging purposes.
-        // console.log('=== DEBUGGING URL PARSING ===');
-        // console.log('Full URL:', window.location.href);
-        // console.log('Search (query):', window.location.search);
-        // console.log('Hash (fragment):', window.location.hash);
 
-  
-      
         //read URL
-      const urlData = parseRoomURL();
-
-
-      
-        // console.log('=== PARSED DATA ===');
-        // console.log('urlData:', urlData);
-        // console.log('roomId:', urlData.roomId);
-        // console.log('roomId type:', typeof urlData.roomId);
-        // console.log('encryptionKey:', urlData.encryptionKey);
-        // console.log('encryptionKey type:', typeof urlData.encryptionKey);
-        // console.log('adminToken:', urlData.adminToken);
-  
-        // Check each condition separately
-        // console.log('=== VALIDATION ===');
-        // console.log('Has roomId?', !!urlData.roomId);
-        // console.log('Has encryptionKey?', !!urlData.encryptionKey);
-        // console.log('roomId is truthy?', urlData.roomId ? true : false);
-        // console.log('encryptionKey is truthy?', urlData.encryptionKey ? true : false);
+        const urlData = parseRoomURL();
   
         if (!urlData.roomId || !urlData.encryptionKey) {
-            // console.error('VALIDATION FAILED!');
-            // console.error('Missing roomId:', !urlData.roomId);
-            // console.error('Missing encryptionKey:', !urlData.encryptionKey);
             showError('Invalid room link. Missing room ID or encryption key.');
             return;
         }
+      
+        roomId = urlData.roomId;
+        encryptionKey = urlData.encryptionKey;
+        adminToken = urlData.adminToken;
 
-        if (!urlData.roomId || !urlData.encryptionKey) {
-            // console.error('FAILED: Missing roomId or encryptionKey'); 
-            showError('Invalid bench link. Missing room ID or encryption key.');
-            return;
+        if (adminToken) {
+            deleteRoomBtn.classList.remove('hidden');
         }
       
-      roomId = urlData.roomId;
-      encryptionKey = urlData.encryptionKey;
-      adminToken = urlData.adminToken;
+        displayName = prompt('What name do they know you by?') || 'Anonymous';
       
-      // console.log('Room ID:', roomId);
-      // console.log('Has encryption key:', !!encryptionKey);
-      // console.log('Has admin token:', !!adminToken);
+        if (!displayName.trim()) {
+            displayName = 'Anonymous';
+        }
       
-
-      if (adminToken) {
-        deleteRoomBtn.classList.remove('hidden');
-      }
-      
-      
-      displayName = prompt('What name do they know you by?') || 'Anonymous';
-      
-      if (!displayName.trim()) {
-        displayName = 'Anonymous';
-      }
-      
-      // console.log('Display name:', displayName); for debug
-      
-      initSound();
+        initSound();
     
-      const soundToggle = document.getElementById('soundToggle');
-      if (soundToggle) {
-        const savedPref = localStorage.getItem('soundEnabled');
-        if (savedPref !== null) {
-          soundEnabled = savedPref === 'true';
-          soundToggle.checked = soundEnabled;
-        }
-      } //Check aspects of defensive programming in JS
+        const soundToggle = document.getElementById('soundToggle');
+        if (soundToggle) {
+            const savedPref = localStorage.getItem('soundEnabled');
+            if (savedPref !== null) {
+                soundEnabled = savedPref === 'true';
+                soundToggle.checked = soundEnabled;
+            }
+        } //Check aspects of defensive programming in JS
 
-      // start connection to WS
-      connectWebSocket();
+        // start connection to WS
+        connectWebSocket();
     }
     
     //ws connection
     
-    function connectWebSocket() {
-      // determine WS URL 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'; 
-      const wsUrl = `${protocol}//${window.location.host}`;
-      
-      // console.log('Connecting to WebSocket:', wsUrl);
-      
-      ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        
-        //joining room
-        ws.send(JSON.stringify({
-          type: 'join',
-          room_id: roomId
-        }));
-      };
-      
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-      
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        showError('Connection error. Please check your internet connection.'); //need to work on error handling
-      };
-      
-      ws.onclose = () => {
-        console.log('WebSocket closed');
-        isConnected = false;
-        addSystemMessage('Disconnected from bench');
-      };
+    async function connectWebSocket() {
+        // determine WS URL
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        ws = new WebSocket(wsUrl);
+
+        // must be async because hashAdminToken uses await
+        ws.onopen = async () => {
+            console.log('WebSocket connected');
+
+            // if this client is the admin, hash their token before sending
+            // the server stores the hash — never the real token
+            let adminHash = '';
+            if (adminToken) {
+                adminHash = await hashAdminToken(adminToken);
+            }
+
+            // join message — this is what creates the room on the server
+            // if the room doesn't exist yet, the server creates it now
+            // if it already exists, the client just joins
+            ws.send(JSON.stringify({
+                type: 'join',
+                roomId: roomId,
+                adminHash: adminHash,
+                payload: displayName  // send username as payload
+            }));
+
+            // show the chat interface immediately after sending join
+            // the server doesn't echo back to the sender so we don't
+            // wait for a confirmation — connection is already established
+            handleSelfJoined();
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            showError('Connection error. Please check your internet connection.'); //need to work on error handling
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket closed');
+            isConnected = false;
+            addSystemMessage('Disconnected from bench');
+        };
     }
     
-// how does ws handle messages?
+    // how does ws handle messages?
     
     function handleWebSocketMessage(data) {
-      console.log('Received:', data);
-      
-      switch (data.type) {
-        case 'joined':
-          handleJoined(data);
-          break;
-        case 'user_joined':
-          handleUserJoined(data);
-          break;
-        case 'user_left':
-          handleUserLeft(data);
-          break;
-        case 'message':
-          handleMessage(data);
-          break;
-        case 'typing_start':
-          handleTypingStart(data);
-          break;
-        case 'typing_stop':
-          handleTypingStop(data);
-          break;
-        case 'new_image':
-          handleNewImage(data);
-          break;
-        case 'room_deleted':
-          handleRoomDeleted();
-          break;
-        case 'error':
-          showError(data.message);
-          break;
-        default:
-          console.log('Unknown message type:', data.type);
-      }
+        console.log('Received:', data);
+
+        switch (data.type) {
+            case 'join':
+                // someone joined — could be us (first join) or someone else
+                if (!isConnected) {
+                    // this is our own join confirmation
+                    handleSelfJoined();
+                } else {
+                    // someone else joined
+                    updateUserCount(userCount_n);
+                    addSystemMessage('Someone joined the bench');
+                }
+                break;
+
+            case 'leave':
+                // someone else left
+                addSystemMessage('Someone left the bench');
+                userCount_n = Math.max(0, userCount_n - 1);
+                updateUserCount(userCount_n);
+                break;
+
+            case 'message':
+                handleMessage(data);
+                break;
+
+            case 'image':
+                handleImage(data);
+                break;
+
+            case 'deleted':
+                // admin deleted the room — everyone gets this
+                handleRoomDeleted();
+                break;
+
+            case 'error':
+                // server sent us an error (e.g. invalid admin token)
+                console.error('Server error:', data.payload);
+                alert(data.payload);
+                break;
+
+            default:
+                console.log('Unknown message type:', data.type);
+        }
     }
-    
-    function handleJoined(data) {
-      // console.log('Successfully joined room');
-      isConnected = true;
-      
-      // hide loading, show interface
-      loadingState.classList.add('hidden');
-      roomInterface.classList.remove('hidden');
-      
-      // update the active user count
-      updateUserCount(data.count);
-      
-      
-      addSystemMessage('You joined the bench');
-      
-      // focus on the  input when entering. accessibility ++ or possible downside. Definitely checking it later.
-      messageInput.focus();
+
+    function handleSelfJoined() {
+        // our join was acknowledged — show the chat interface
+        isConnected = true;
+        userCount_n = 1; //we are the first person the server knows about
+        loadingState.classList.add('hidden');
+        roomInterface.classList.remove('hidden');
+        addSystemMessage('You joined the bench');
+        messageInput.focus();
     }
-    
-    function handleUserJoined(data) {
-      updateUserCount(data.count);
-      addSystemMessage('Someone joined the bench');
-    }
-    
-    function handleUserLeft(data) {
-      updateUserCount(data.count);
-      addSystemMessage('Someone left the bench');
-    }
-    
+
     function handleMessage(data) {
-      // message decryption
-      const decrypted = decryptMessage(data.encrypted_data, encryptionKey);
-      
-      if (!decrypted) {
-        console.error('Failed to decrypt message');
-        return;
-      }
+        // data.payload is the encrypted blob
+        // data.senderId tells us who sent it
+        const decrypted = decryptMessage(data.payload, encryptionKey);
 
-      if (decrypted.sender !== displayName) {
+        if (!decrypted) {
+            console.error('Failed to decrypt message');
+            return;
+        }
+
+        // play sound if this came from someone else
+        // we identify ourselves by displayName inside the encrypted payload
+        if (decrypted.sender !== displayName) {
+            playNotificationSound();
+        }
+
+        addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
+    }
+
+    function handleImage(data) {
+        // data.payload is the encrypted image blob (base64)
+        // decrypt it directly — no HTTP download needed anymore
+        const decrypted = decryptImageFromBase64(data.payload, encryptionKey);
+
+        if (!decrypted) {
+            console.error('Failed to decrypt image');
+            addSystemMessage('❌ Failed to load image');
+            return;
+        }
+
+        const imageUrl = URL.createObjectURL(decrypted);
+
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = `
+            <div class="message-sender">Image</div>
+            <img
+                src="${imageUrl}"
+                class="message-image"
+                alt="image"
+                onclick="window.open(this.src)">`;
+        messagesContainer.appendChild(div);
+        scrollToBottom();
         playNotificationSound();
-      }
-      
-      if (!decrypted) {}
-      // showing the decrypted message
-      addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
     }
-    
-    async function handleNewImage(data) {
-     
-      // console.log('New image notification:', data); 
 
-      const loadingDiv = document.createElement('div');
-      loadingDiv.className = 'message';
-      loadingDiv.innerHTML = `
-        <div class = "message-sender">Image</div>
-        <dive class = "image-loading">Loading image...</div>`;
-      messagesContainer.appendChild(loadingDiv);
-      scrollToBottom();
-      
-      try {
-        const response = await fetch(`/api/download/${data.file_id}`);
-
-        if (!response.ok) {
-            throw new Error('Failed to download image');
-        }
-
-        const responseData = await response.json();
-
-        const imageBlob = decryptImage(
-            responseData.encrypted_data,
-            encryptionKey,
-            responseData.metadata.mime_type
-        );
-
-        if (!imageBlob) {
-            throw new Error('Failed to decrypt image');
-        }
-
-        const imageUrl = URL.createObjectURL(imageBlob);
-
-        loadingDiv.innerHTML = `
-        <div class = "message-sender">Image</div>
-        <img
-            src="${imageUrl}"
-            class="message-image"
-            alt="${escapeHtml(data.metadata.filename)}"
-            onclick="window.open(this.src)">
-        <div class="message-time">${data.metadata.filename} (${formatFileSize(data.metadata.size)})</div>`;
-      }catch (error) {
-        console.error('Error loading image:',error);
-        loadingDiv.innerHTML = `
-        <div class = "message-sender">Image</div>
-        <div class = "image-loading">❌ Failed to load image</div>`;
-      }
-    }
-    
     function handleRoomDeleted() {
-      showError('This bench has been deleted by the creator.');
-      ws.close();
+        showError('This bench has been deleted by the creator.');
+        ws.close();
     }
 
-    function handleTypingStart(data) {
-      typingUsers.add(data.username);
-      updateTypingDisplay();
-    }
-
-    function handleTypingStop(data) {
-      typingUsers.delete(data.username);
-      updateTypingDisplay();
-    }
-
-    function updateTypingDisplay() {
-      const indicator = document.getElementById('typingIndicator');
-
-      if (typingUsers.size === 0) {
-        indicator.style.display = 'none';
-        return;
-      }
-
-      indicator.style.display = 'block';
-
-      const names = Array.from(typingUsers);
-
-      if (names.length === 1) {
-        indicator.textContent = `${names[0]} is typing...`;
-      } else if (names.length === 2) {
-        indicator.textContent = `${names[0]} and ${names[1]} are typing...`;
-      }else {
-        indicator.textContent = `${names.length} people are typing...`;
-      }
-    }
-    
-   //UI helper functions
+    //UI helper functions
     
     function updateUserCount(count) {
-      const text = count === 1 ? '1 person here' : `${count} people here`;
-      userCount.textContent = text;
+        const text = count === 1 ? '1 person here' : `${count} people here`;
+        userCount.textContent = text;
     }
     
     function addSystemMessage(text) {
-      const div = document.createElement('div');
-      div.className = 'system-message';
-      div.textContent = text;
-      messagesContainer.appendChild(div);
-      scrollToBottom();
+        const div = document.createElement('div');
+        div.className = 'system-message';
+        div.textContent = text;
+        messagesContainer.appendChild(div);
+        scrollToBottom();
     }
     
     function addMessage(sender, text, timestamp) {
-      const div = document.createElement('div');
-      div.className = 'message';
+        const div = document.createElement('div');
+        div.className = 'message';
       
-      const time = new Date(timestamp).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+        const time = new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
       
-      div.innerHTML = `
-        <div class="message-sender">${escapeHtml(sender)}</div>
-        <div class="message-content">${escapeHtml(text)}</div>
-        <div class="message-time">${time}</div>
-      `;
+        div.innerHTML = `
+            <div class="message-sender">${escapeHtml(sender)}</div>
+            <div class="message-content">${escapeHtml(text)}</div>
+            <div class="message-time">${time}</div>
+        `;
       
-      messagesContainer.appendChild(div);
-      scrollToBottom();
+        messagesContainer.appendChild(div);
+        scrollToBottom();
     }
     
     function scrollToBottom() {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
     
     function playNotificationSound() {
-      if (!soundEnabled) {
-        return;
-      }
+        if (!soundEnabled) {
+            return;
+        }
 
-      if (!notificationSound) {
-        console.warn('Notification sound not loaded');
-        return;
-      }
+        if (!notificationSound) {
+            console.warn('Notification sound not loaded');
+            return;
+        }
 
-      if (!document.hidden) {
-        return; //when the tab is active, sounds will not be played.
-      }
+        if (!document.hidden) {
+            return; //when the tab is active, sounds will not be played.
+        }
 
-      notificationSound.currentTime = 0; //from the start
-      notificationSound.play().catch(error => {
-        console.log('Sound playback blocked:', error);
-      });
+        notificationSound.currentTime = 0; //from the start
+        notificationSound.play().catch(error => {
+            console.log('Sound playback blocked:', error);
+        });
     }
 
     function showError(message) {
-      errorText.textContent = message;
-      loadingState.classList.add('hidden');
-      roomInterface.classList.add('hidden');
-      errorState.classList.remove('hidden');
+        errorText.textContent = message;
+        loadingState.classList.add('hidden');
+        roomInterface.classList.add('hidden');
+        errorState.classList.remove('hidden');
     }
     
     function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function formatFileSize(bytes) {
@@ -792,104 +705,73 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
     
-// sending messages
+    // sending messages
     
     function sendMessage() {
-      const text = messageInput.value.trim();
-      
-      if (!text || !isConnected) {
-        return;
-      }
-      
-      // making the  message object
-      const messageObj = {
-        sender: displayName,
-        text: text,
-        timestamp: Date.now()
-      };
-      
-      // encryption 
-      const encrypted = encryptMessage(messageObj, encryptionKey);
-      
-      // and send via WS
-      ws.send(JSON.stringify({
-        type: 'message',
-        room_id: roomId,
-        encrypted_data: encrypted
-      }));
-      
-      // clear input
-      messageInput.value = '';
-      messageInput.style.height = 'auto';
+        const text = messageInput.value.trim();
 
-      if(isTyping) {
-        isTyping = false;
-        clearTimeout(typingTimeout);
+        if (!text || !isConnected) {
+            return;
+        }
+
+        // making the message object
+        const messageObj = {
+            sender: displayName,
+            text: text,
+            timestamp: Date.now()
+        };
+
+        // encryption
+        const encrypted = encryptMessage(messageObj, encryptionKey);
+
+        // send to server — server forwards to everyone else
+        // field names must match Go's IncomingMessage struct exactly
         ws.send(JSON.stringify({
-          type:'typing_stop',
-          room_id: roomId,
-          username: displayName
+            type: 'message',
+            roomId: roomId,
+            payload: encrypted
         }));
-      }
+
+        // show our own message immediately — server doesn't echo back to sender
+        addMessage(displayName, text, messageObj.timestamp);
+
+        // clear input
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
     }
 
     async function sendImage(file) {
         if (!file.type.startsWith('image/')) {
-            alert('Only images are allowed to send in Benchtalks (for the moment at least)!');
+            alert('Only images are allowed to send in BenchTalks (for the moment at least)!');
             return;
         }
 
-        const MAX_SIZE = 10 * 1024 * 1024;
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
         if (file.size > MAX_SIZE) {
             alert('Image too large. Maximum size is 10MB!');
             return;
         }
-        //no need for this since it's broadcasted, but good material for education either way.
-        // const loadingDiv = document.createElement('div');
-        // loadingDiv.className = 'message';
-        // loadingDiv.innerHTML = `
-        //     <div class="message-sender">You</div>
-        //     <div class="image-loading">Encrypting and uploading...</div>`;
-        // messagesContainer.appendChild(loadingDiv);
-        // scrollToBottom();
 
         try {
-            
+            // encrypt the image client-side
             const encryptedData = await encryptImage(file, encryptionKey);
-            console.log('Encrypted image size:', encryptedData.length);
 
-            const response = await fetch ('/api/upload', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    room_id: roomId,
-                    encrypted_data: encryptedData,
-                    metadata: {
-                        filename: file.name,
-                        size: file.size,
-                        mime_type: file.type
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Upload failed');
-            }
-
-            const data = await response.json();
-            console.log('Upload response:', data);
-
+            // send as WebSocket message — same pattern as text
+            // server forwards the encrypted blob to everyone else
+            // no /api/upload, no disk storage, server never holds the image
             ws.send(JSON.stringify({
-                type: 'image_notification',
-                room_id: roomId,
-                file_id: data.file_id,
-                metadata: data.metadata
+                type: 'image',
+                roomId: roomId,
+                payload: encryptedData
             }));
 
-            const imageBlob = decryptImage(encryptedData, encryptionKey, file.type);
+            // show our own image immediately — server doesn't echo back to sender
+            const imageBlob = await decryptImageFromBase64(encryptedData, encryptionKey, file.type);
             const imageUrl = URL.createObjectURL(imageBlob);
 
-            loadingDiv.innerHTML = `
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = `
                 <div class="message-sender">You</div>
                 <img
                     src="${imageUrl}"
@@ -897,11 +779,12 @@
                     alt="${escapeHtml(file.name)}"
                     onclick="window.open(this.src)">
                 <div class="message-time">${file.name} (${formatFileSize(file.size)})</div>`;
-        }catch (error) {
-            console.error('Error uploading image:',error);
-            loadingDiv.innerHTML = `
-                <div class="message-sender">You</div>
-                <div class="image-loading">❌ Failed to upload image</div>`;
+            messagesContainer.appendChild(div);
+            scrollToBottom();
+
+        } catch (error) {
+            console.error('Error sending image:', error);
+            addSystemMessage('❌ Failed to send image');
         }
     }
     
@@ -911,49 +794,28 @@
     
     const soundToggle = document.getElementById('soundToggle');
     soundToggle.addEventListener('change', (e) => {
-      soundEnabled = e.target.checked;
+        soundEnabled = e.target.checked;
 
-      localStorage.setItem('soundEnabled', soundEnabled);
-      console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
+        localStorage.setItem('soundEnabled', soundEnabled);
+        console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
 
-      if (soundEnabled && notificationSound) {
-        notificationSound.currentTime = 0;
-        notificationSound.play().catch(() => {});
-      }
+        if (soundEnabled && notificationSound) {
+            notificationSound.currentTime = 0;
+            notificationSound.play().catch(() => {});
+        }
     });
 
     messageInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-    
-    
-    messageInput.addEventListener('input', () => {
-      messageInput.style.height = 'auto';
-      messageInput.style.height = messageInput.scrollHeight + 'px';
-      
-      if(!isTyping && isConnected) {
-        isTyping = true;
-        ws.send(JSON.stringify({
-          type: 'typing_start',
-          room_id: roomId,
-          username: displayName
-        }));
-      }
-
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        if (isTyping) {
-          isTyping = false;
-          ws.send(JSON.stringify({
-            type: 'typing_stop',
-            room_id: roomId,
-            username: displayName
-          }));
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
         }
-      }, 1000);
+    });
+
+    // auto-resize textarea as user types
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = messageInput.scrollHeight + 'px';
     });
 
     attachBtn.addEventListener('click', () => {
@@ -965,42 +827,23 @@
         if (file) {
             sendImage(file);
         }
-        
         imageInput.value = '';
     });
     
     // deleting the room
     deleteRoomBtn.addEventListener('click', async () => {
-      if (!confirm('Are you sure you want to delete this bench? Everyone will be kicked out.')) {
-        return;
-      }
-
-      console.log('Deleting room...');
-      console.log('roomId:', roomId);
-      console.log('adminToken:', adminToken);
-      console.log('adminToken length:', adminToken ? adminToken.length : 0);
-      
-      try {
-        const response = await fetch(`/api/room/${roomId}`, {
-          method: 'DELETE',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ admin_token: adminToken })
-        });
-
-        console.log('Response status:', response.status);
-        
-        if (response.ok) {
-          alert('Bench deleted successfully');
-          window.location.href = '/';
-        } else {
-            const errorData = await response.json();
-          console.error('Delete error:', errorData);
-          alert('Failed to delete bench: ' + (errorData.error || 'Unknown error'));
+        if (!confirm('Are you sure you want to delete this bench? Everyone will be kicked out.')) {
+            return;
         }
-      } catch (error) {
-        console.error('Error deleting bench:', error);
-        alert('Failed to delete bench');
-      }
+
+        // send the real admin token as payload
+        // the server hashes it and compares to the stored hash
+        // if it matches, server closes all connections
+        ws.send(JSON.stringify({
+            type: 'delete',
+            roomId: roomId,
+            payload: adminToken
+        }));
     });
     
     init();

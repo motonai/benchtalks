@@ -9,11 +9,13 @@ import (
 	"github.com/isidman/benchtalks/server"
 )
 
+//go:embed all:public
 var staticFiles embed.FS
 
 func main() {
 	cfg := config.Load()
 	hub := server.NewHub()
+
 	router := server.NewRouter(hub, staticFiles)
 
 	log.Printf("Benchtalks is listening on: %s", cfg.Port)

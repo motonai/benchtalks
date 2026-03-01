@@ -27,13 +27,18 @@ func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
 		ServeWS(hub, w, r)
 	})
 
-	// Go's file server auto-redirects /index.html → / which causes a loop.
-	// INTERCEPTION -EPTION -TION -ON *read it in echo voice* and send a 302 to /index.html explicitly.
-	// The browser follows it, requests /index.html directly,
-	// and the file server serves it without redirecting again.
+	// Read index.html directly from the embedded FS and serve it ourselves.
+	// We bypass the file server entirely for this one file because Go's file server
+	// always redirects /index.html → / which causes an infinite loop.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "" {
-			http.Redirect(w, r, "/index.html", http.StatusFound)
+			data, err := fs.ReadFile(stripped, "index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(data)
 			return
 		}
 		fileServer.ServeHTTP(w, r)
