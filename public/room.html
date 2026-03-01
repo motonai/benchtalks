@@ -542,6 +542,12 @@
                 userCount_n = Math.max(0, userCount_n - 1);
                 updateUserCount(userCount_n);
                 break;
+            case 'welcome':
+                //server gives info on how many people are in the room at the moment
+                //Better than counting join/leave events
+                userCount_n = parseInt(data.payload);
+                updateUserCount(userCount_n);
+                break;
 
             case 'message':
                 handleMessage(data);
@@ -570,8 +576,6 @@
     function handleSelfJoined() {
         // our join was acknowledged — show the chat interface
         isConnected = true;
-        userCount_n = 1; //we are the first person the server knows about
-        updateUserCount(userCount_n);
         loadingState.classList.add('hidden');
         roomInterface.classList.remove('hidden');
         addSystemMessage('You joined the bench');

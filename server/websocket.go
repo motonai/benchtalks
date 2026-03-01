@@ -126,6 +126,10 @@ func (c *Client) readPump(hub *Hub) {
 			notify := buildOutgoing("join", "", c.id)
 			hub.Broadcast(roomID, c.id, notify)
 
+			count := hub.RoomSize(roomID)
+			welcome := buildOutgoing("welcome", fmt.Sprintf("%d", count), c.id)
+			c.send <- welcome
+
 			//In the same way messages get handled, it handles images too. The server doesn't look inside the payloads/blobs.
 		case "message":
 			if roomID == "" {

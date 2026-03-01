@@ -61,6 +61,20 @@ func (h *Hub) getOrCreateRoom(roomID, adminHash string) *Room {
 	return room
 }
 
+func (h *Hub) RoomSize(roomID string) int {
+	h.mu.Lock()
+	room, exists := h.rooms[roomID]
+	h.mu.Unlock()
+
+	if !exists {
+		return 0
+	}
+
+	room.mu.Lock()
+	defer room.mu.Unlock()
+	return len(room.clients)
+}
+
 // this one adds a client to a room if it exists, otherwise creates the room and adds the client in
 func (h *Hub) JoinRoom(roomID, adminHash string, client *Client) {
 	room := h.getOrCreateRoom(roomID, adminHash) //Πέρνω μες το βράδυ, στο σκοτάδι, μα κανένα αγάπης σημάδι. 🎶
