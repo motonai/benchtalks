@@ -469,6 +469,12 @@
                     title="Create a new bench and open it in a new tab">
                     🪑 Create new bench
                 </button>
+                <!-- make public — only useful if bench has NATS peers configured.
+                     hidden after use since it's a one-way action. -->
+                <button class="dropdown-item" id="makePublicBtn"
+                    title="Federate this room across all connected benches">
+                    🌐 Make room public
+                </button>
                 <button class="dropdown-item dropdown-item-danger" id="deleteBenchBtn"
                     title="Permanently delete this bench for everyone">
                     🗑️ Delete this bench
@@ -566,6 +572,7 @@
     const newBenchBtn = document.getElementById('newBenchBtn');
     const deleteBenchBtn = document.getElementById('deleteBenchBtn');
     const inviteBtn = document.getElementById('inviteBtn');
+    const makePublicBtn = document.getElementById('makePublicBtn');
 
     //togglin and boppin
     adminMenuBtn.addEventListener('click', (e) => {
@@ -636,6 +643,23 @@
 
         ws.send(JSON.stringify({
             type: 'delete',
+            roomId: roomId,
+            payload: adminToken
+        }));
+    });
+
+    // making the room public — one-way, button hides itself after success
+    // sends the raw admin token as payload; server hashes and verifies it
+    // same pattern as delete, just a different message type
+    makePublicBtn.addEventListener('click', () => {
+        adminDropdown.classList.add('hidden');
+
+        if (!confirm('Make this room public? Messages will be visible across all connected benches. This cannot be undone.')) {
+            return;
+        }
+
+        ws.send(JSON.stringify({
+            type: 'make_public',
             roomId: roomId,
             payload: adminToken
         }));
@@ -796,6 +820,13 @@
             case 'deleted':
                 // admin deleted the room — everyone gets this
                 handleRoomDeleted();
+                break;
+
+            case 'made_public':
+                // admin made the room public — everyone gets this including the admin
+                // hide the button so it can't be clicked twice (it's one-way anyway)
+                makePublicBtn.classList.add('hidden');
+                addSystemMessage('🌐 This bench is now public — messages are visible across the park');
                 break;
 
             case 'error':

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	natspkg "github.com/isidman/benchtalks/nats"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -26,6 +28,7 @@ type Client struct {
 type Room struct {
 	id        string
 	adminHash string
+	isPublic  bool
 	clients   map[string]*Client //who's sitting on the bench
 	mu        sync.Mutex         //lock before touch clients (ew wtf?)
 }
@@ -33,7 +36,8 @@ type Room struct {
 // This is a hub. It has all rooms that have users in them. Kinda like a very noisy and loud park.
 type Hub struct {
 	rooms map[string]*Room
-	mu    sync.Mutex // lock before touch rooms
+	mu    sync.Mutex     // lock before touch rooms
+	relay *natspkg.Relay //nil for standalone, set at startup via SetRelay
 }
 
 // this functions is called once, when this whole thing starts, in main.go
@@ -41,6 +45,12 @@ func NewHub() *Hub {
 	return &Hub{
 		rooms: make(map[string]*Room),
 	}
+}
+
+// this one gives the hub a live relay to publish park messages through and its called from main.go, right after "connect()" succeeds after NATS_PEERS.
+// If NATS is not configured, this is standalone.
+func (h *Hub) SetRelay(r *natspkg.Relay) {
+	h.relay = r
 }
 
 // this one checks if there's a room and if there isn't, it makes a new one.
@@ -139,6 +149,65 @@ func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
 			delete(room.clients, id)
 		}
 	}
+
+	//two conditions: public room and live relay. That's all it takes to publish messages to the park.
+	//other benches will receive this and forward to their local clients.
+	//this happens only after the local loop is done. Park delivery happens in paraller after.
+	if room.isPublic && h.relay != nil {
+		h.relay.Publish(roomID, message)
+	}
+}
+
+// BroadcastFromPark is called by the relay when a message comes to a bench from another bench via NATS. Same as Broadcast but sends to every local client.
+// "Sender" part doesn't exist here because the original sender is on a different bench entirely.
+// Doesn't publish back to NATS, otherwise benches would echo each other forever.
+func (h *Hub) BroadcastFromPark(roomID string, payload []byte) {
+	h.mu.Lock()
+	room, exists := h.rooms[roomID]
+	h.mu.Unlock()
+
+	//if nobody on this bench is present, there's nothing to do.
+	//it's normal, since a public room can exist on a remote bench but has no local members yet.
+	if !exists {
+		return
+	}
+
+	room.mu.Lock()
+	defer room.mu.Unlock()
+
+	for id, client := range room.clients {
+		select {
+		case client.send <- payload:
+		default:
+			close(client.send)
+			delete(room.clients, id)
+		}
+	}
+	//No "relay.Publish" loop prevention
+}
+
+// MakePublic turns a room from private to public after verifying the admin token.
+// Returns true if the room is public, false if token was wrong or room doesn't exist.
+// ONE WAY ONLY: ONCE A ROOM IS PUBLIC IT STAYS PUBLIC. You can't un-federate messages that have already crossed benches.
+func (h *Hub) MakePublic(roomID string, adminToken string) bool {
+	h.mu.Lock()
+	room, exists := h.rooms[roomID]
+	h.mu.Unlock()
+
+	if !exists {
+		return false
+	}
+
+	if !verifyAdminToken(adminToken, room.adminHash) {
+		return false
+	}
+
+	room.mu.Lock()
+	room.isPublic = true
+	room.mu.Unlock()
+
+	log.Printf("[hub] room %s is now public", roomID)
+	return true
 }
 
 //this one verifies the admin token hash and closes/deletes the room.

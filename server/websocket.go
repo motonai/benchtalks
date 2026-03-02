@@ -157,6 +157,22 @@ func (c *Client) readPump(hub *Hub) {
 				errMsg := buildOutgoing("error", "invalid admin token", c.id)
 				c.send <- errMsg
 			}
+
+			//same as delete case
+		case "make_public":
+			if roomID == "" {
+				continue
+			}
+			ok := hub.MakePublic(roomID, msg.Payload)
+			if !ok {
+				errMsg := buildOutgoing("error", "invalid admin token", c.id)
+				c.send <- errMsg
+			} else {
+				//notify other clients in the room. inform people that this room is federated
+				notify := buildOutgoing("made_public", "", c.id)
+				hub.Broadcast(roomID, c.id, notify)
+				c.send <- buildOutgoing("made_public", "", c.id)
+			}
 		}
 	}
 }
