@@ -141,3 +141,18 @@ func (r *Relay) Close() {
 		log.Printf("[nats] disconnected from park")
 	}
 }
+
+//This one reports if the NATS connection is alive or not to the app health handler
+//so that it can show federation sttus on the dashboard.
+//Safe to call from goroutines.
+
+//Something I've learned: In Go you can call a method on a nil pointer without panicking, as long as the method handles it. :o
+//In this case r == nil would never actually be reached in practice.
+//So if someone calls "IsConnected()" directly on a uninitialized relay, it just returns false. | D E F E N S I V E Programming.
+
+func (r *Relay) IsConnected() bool {
+	if r == nil || r.conn == nil {
+		return false
+	}
+	return r.conn.IsConnected()
+}

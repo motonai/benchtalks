@@ -2,9 +2,41 @@ package server
 
 import (
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"net/http"
+	"time"
 )
+
+const Version = "1.2.0"
+
+var startTime = time.Now()
+
+// Health Handler serves "GET /health" - a public JSON ss of server state.
+// The CORS header lets status.benchtalks.chat get this from a different origin.
+func (h *Hub) HealthHandler(w http.ResponseWriter, r *http.Request) {
+	rooms, users := h.HealthSnapshot()
+
+	//asking relay if it's coonected, nil means it's standalone
+	natsConnected := h.relay != nil && h.relay.IsConnected()
+
+	//response
+	payload := map[string]any{
+		"status":         "ok",
+		"version":        Version,
+		"bench_id":       h.cfg.BenchID,
+		"uptime_seconds": int(time.Since(startTime).Seconds()),
+		"active_rooms":   rooms,
+		"total_users":    users,
+		"nats_connected": natsConnected,
+		"nats_peers":     h.cfg.NATSPeers,
+		"websocket_ok":   true,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(payload)
+}
 
 // So Go embeds the entire public/ folder into the binary.
 func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
@@ -27,6 +59,9 @@ func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
 		ServeWS(hub, w, r)
 	})
 
+	//health :D
+	//we need to do it here before the "/" because after it, the catchall would intercept the request and serve something that doesn't exist, making it a 404.
+	mux.HandleFunc("/health", hub.HealthHandler)
 	// Read index.html directly from the embedded FS and serve it ourselves.
 	// We bypass the file server entirely for this one file because Go's file server
 	// always redirects /index.html → / which causes an infinite loop.

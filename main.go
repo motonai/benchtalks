@@ -15,7 +15,7 @@ var staticFiles embed.FS
 
 func main() {
 	cfg := config.Load()
-	hub := server.NewHub()
+	hub := server.NewHub(&cfg)
 
 	//If NATS_PEERS is configured, then connect to the park and wire up the relay into the hub. If not, "hub.relay" stays nil and everything runs as standalone
 	if len(cfg.NATSPeers) > 0 {

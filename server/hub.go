@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/isidman/benchtalks/config"
 	natspkg "github.com/isidman/benchtalks/nats"
 
 	"github.com/gorilla/websocket"
@@ -38,12 +39,14 @@ type Hub struct {
 	rooms map[string]*Room
 	mu    sync.Mutex     // lock before touch rooms
 	relay *natspkg.Relay //nil for standalone, set at startup via SetRelay
+	cfg   *config.Config //bench identity and startup config
 }
 
 // this functions is called once, when this whole thing starts, in main.go
-func NewHub() *Hub {
+func NewHub(cfg *config.Config) *Hub {
 	return &Hub{
 		rooms: make(map[string]*Room),
+		cfg:   cfg,
 	}
 }
 
@@ -276,4 +279,21 @@ func verifyAdminToken(token, storedHash string) bool {
 	log.Printf("COMPUTED HASH: %s", hexHash)
 	log.Printf("STORED HASH:   %s", storedHash)
 	return hexHash == storedHash
+}
+
+// HealthSnapshot returns a "photo" of the hubs runtime state.
+// It's called by the health handler in http.go to build the /health response and it returns room count and total user count across all rooms.
+// No need to expose the room map directly. that's where snapshots help too
+func (h *Hub) HealthSnapshot() (rooms int, users int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	rooms = len(h.rooms)
+
+	for _, room := range h.rooms {
+		room.mu.Lock()
+		users += len(room.clients)
+		room.mu.Unlock()
+	}
+	return
 }
