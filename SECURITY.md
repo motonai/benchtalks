@@ -14,7 +14,7 @@ Only the latest release on the main branch is actively maintained.
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Report security issues by emailing: **security@benchtalks.chat**
+Report security issues by emailing: **b3ncht4lks@protonmail.com**
 
 Include:
 - A description of the vulnerability
@@ -22,7 +22,7 @@ Include:
 - What an attacker could do by exploiting it
 - Your assessment of severity
 
-You will receive an acknowledgement within 48 hours. If the issue is confirmed, a fix will be prioritised and you will be credited in the release notes unless you prefer otherwise.
+You will receive an acknowledgement as soon as possible. If the issue is confirmed, a fix will be prioritised and you will be credited in the release notes unless you prefer otherwise.
 
 ## What counts as a vulnerability
 
@@ -37,4 +37,4 @@ You will receive an acknowledgement within 48 hours. If the issue is confirmed, 
 
 - The server operator reading their own server logs — operators are trusted for their own bench by design
 - The fact that room IDs are not secret — security comes from the encryption key, not the room ID
-- Loss of messages when a server restarts — this is intentional
+- Loss of messages when a server restarts — **this is intentional**
