@@ -14,7 +14,7 @@ Self-hosted instances are called **benches**. Benches can connect into a **park*
 
 When you create a room, your browser generates an encryption key. That key lives in the URL fragment — the part after `#`. Browsers never send fragments to servers, so the server never sees your key. Every message and image is encrypted before it leaves your device and decrypted after it arrives. The server sees only blobs it cannot read.
 
-Rooms exist only while people are in them. When the last person leaves, the room vanishes. No database, no disk writes, no cleanup jobs.
+Rooms exist only while people are in them. When the last person leaves, the room vanishes.
 
 ---
 
@@ -40,7 +40,7 @@ chmod +x benchtalks
 ./benchtalks
 ```
 
-No runtime dependencies. No Node, no Python, no database. Just the binary.
+No runtime dependencies.
 
 ### Environment variables
 
@@ -100,8 +100,6 @@ NATS clusters automatically once two servers can reach each other. No central au
 
 - **Encryption:** XSalsa20-Poly1305 via [TweetNaCl](https://github.com/dchest/tweetnacl-js)
 - **Key size:** 256 bits
-- **Key location:** URL fragment only — never sent to any server
-- **Admin tokens:** SHA-256 hashes in memory only, gone when the room empties
 - **Server role:** Forward encrypted blobs and count connections. It cannot decrypt messages, identify users, or reconstruct history.
 - **Federation:** NATS peers receive the same encrypted blobs. No bench can read another bench's traffic.
 
@@ -144,24 +142,4 @@ GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
 The AGPL means: if you modify BenchTalks and run it as a network service, you must make your modified source code available to the users of that service. You cannot take this code, strip the privacy features, and run a closed-source fork as a commercial service.
 
 ---
-
-## Architecture
-```
-benchtalks/
-  main.go          entry point
-  config/
-    config.go      environment variable loading
-  nats/
-    relay.go       NATS connection, publish/subscribe, loop prevention
-  server/
-    hub.go         in-memory room state, broadcast logic
-    websocket.go   WebSocket upgrade, read/write pumps per client
-    http.go        static file serving from embedded filesystem
-  public/
-    index.html     landing page, room creation
-    room.html      chat interface
-    crypto.js      all client-side encryption via TweetNaCl
-    style.css      styling
-```
-
 The entire application state is a map of rooms in memory. When the process stops, everything is gone. This is a feature.
