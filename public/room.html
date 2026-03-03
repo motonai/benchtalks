@@ -489,9 +489,9 @@
     
     <div id="messagesContainer" class="messages-container">
       <!-- where the messages should appear -->
-       <div id="typingIndicator" class="system-message" style="display: none;"></div>
     </div>
 
+    <div id="typingIndicator" class="system-message" style="display: none;"></div>
     
     <div class="input-container">
         <input
@@ -544,6 +544,8 @@
     let notificationSound = null;
     let soundEnabled = true;
     let userCount_n = 0;
+    let typingTimer = null;
+    let lasTypingSent = 0;
 
     //first loads the page, then the sound is enabled
     function initSound() {
@@ -573,7 +575,11 @@
     const deleteBenchBtn = document.getElementById('deleteBenchBtn');
     const inviteBtn = document.getElementById('inviteBtn');
     const makePublicBtn = document.getElementById('makePublicBtn');
-
+    const TYPING_THROTTLE = 2000;
+    const TYPING_TIMEOUT = 4000;
+    const typingUsers = new Set();
+    const typingTimeouts = {};
+    
     //togglin and boppin
     adminMenuBtn.addEventListener('click', (e) => {
         e.stopPropagation(); //this prevents the document click handler from immediately closing it down (SENDING IT TO JAIL)
@@ -774,6 +780,9 @@
             console.log('WebSocket closed');
             isConnected = false;
             addSystemMessage('Disconnected from bench');
+            typingUsers.clear();
+            Object.values(typingTimeouts).forEach(clearTimeout);
+            updateTypingIndicator();
         };
     }
     
@@ -822,6 +831,14 @@
                 handleRoomDeleted();
                 break;
 
+            case 'typing':
+                handleTyping(data.senderId || 'user');
+                break;
+            
+            case 'stop_typing':
+                handleStopTyping(data.senderId || 'user');
+                break;
+
             case 'made_public':
                 // admin made the room public — everyone gets this including the admin
                 // hide the button so it can't be clicked twice (it's one-way anyway)
@@ -866,6 +883,38 @@
         }
 
         addMessage(decrypted.sender, decrypted.text, decrypted.timestamp);
+    }
+
+    function handleTyping(userId) {
+        typingUsers.add(userId);
+        updateTypingIndicator();
+        clearTimeout(typingTimeouts[userId]);
+        typingTimeouts[userId] = setTimeout(() => {
+            handleStopTyping(userId);
+        }, TYPING_TIMEOUT + 500);
+    }
+
+    function handleStopTyping(userId) {
+        typingUsers.delete(userId);
+        clearTimeout(typingTimeouts[userId]);
+        delete typingTimeouts[userId];
+        updateTypingIndicator();
+    }
+
+    function updateTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (!indicator) return;
+        const count = typingUsers.size;
+        if (count === 0) {
+            indicator.style.display = 'none';
+            indicator.textContent = '';
+        } else if (count === 1) {
+            indicator.style.display = '';
+            indicator.textContent = 'Someone is typing...';
+        } else {
+            indicator.style.display = '';
+            indicator.textContent = 'Several people are typing...';
+        }
     }
 
     function handleImage(data) {
@@ -1004,6 +1053,8 @@
             payload: encrypted
         }));
 
+        sendStopTyping();
+
         // show our own message immediately — server doesn't echo back to sender
         addMessage(displayName, text, messageObj.timestamp);
 
@@ -1060,6 +1111,18 @@
         }
     }
     
+    function sendTyping() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({type: 'typing', roomId: roomId, payload: null}));
+    }
+
+    function sendStopTyping() {
+        clearTimeout(typingTimer);
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({type: 'stop_typing', roomId: roomId, payload: null}));
+        lasTypingSent = 0;
+    }
+
     //event listeners
     
     sendBtn.addEventListener('click', sendMessage);
@@ -1088,6 +1151,14 @@
     messageInput.addEventListener('input', () => {
         messageInput.style.height = 'auto';
         messageInput.style.height = messageInput.scrollHeight + 'px';
+
+        const now = Date.now();
+        if (now -lasTypingSent > TYPING_THROTTLE) {
+            sendTyping();
+            lasTypingSent = now;
+        }
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(sendStopTyping, TYPING_TIMEOUT);
     });
 
     attachBtn.addEventListener('click', () => {

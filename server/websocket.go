@@ -173,6 +173,23 @@ func (c *Client) readPump(hub *Hub) {
 				hub.Broadcast(roomID, c.id, notify)
 				c.send <- buildOutgoing("made_public", "", c.id)
 			}
+
+		case "typing":
+			if roomID == "" {
+				continue
+			}
+			//relaying the typing to everyone else,
+			// no need to know who types for now.
+			out := buildOutgoing("typing", "", c.id)
+			hub.Broadcast(roomID, c.id, out)
+
+		case "stop_typing":
+			if roomID == "" {
+				continue
+			}
+			//relay the stop signal so other clients clear the indicator.
+			out := buildOutgoing("stop_typing", "", c.id)
+			hub.Broadcast(roomID, c.id, out)
 		}
 	}
 }
