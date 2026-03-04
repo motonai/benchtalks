@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BenchTalks - Room</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/room.css">
+</head>
+<body>
+  <!-- loading state -->
+  <div id="loadingState" class="centered-message">
+    <div class="spinner"></div>
+    <p style="margin-top: 16px;">Joining bench...</p>
+  </div>
+
+  <!-- error state -->
+  <div id="errorState" class="centered-message hidden">
+    <h2>⚠️ Unable to Join</h2>
+    <p id="errorText" style="margin: 16px 0; opacity: 0.8;"></p>
+    <button onclick="location.href='/'" class="btn-small">Go Home</button>
+  </div>
+
+  <!--Interface -->
+  <div id="roomInterface" class="room-container hidden">
+    
+    <div class="room-header">
+      <div class="room-info">
+        <h2>🪑 BenchTalks</h2>
+        <div class="room-status">
+          <span id="userCount">0 people here</span>
+          <label style="margin-left: 16px; font-size: 0.85rem; cursor: pointer;">
+            <input type ="checkbox" id="soundToggle" checked>
+            🔔 Sound
+          </label>
+        </div>
+      </div>
+
+      <div class="room-actions">
+        <!-- admin dropdown — only visible if this client has the admin token -->
+        <div id="adminMenu" class="hidden" style="position: relative;">
+            <button id="adminMenuBtn" class="btn-small">Admin ▾</button>
+            <div id="adminDropdown" class="admin-dropdown hidden">
+                <button class="dropdown-item" id="inviteBtn"
+                    title="Share this bench with others">
+                    👥 Invite people
+                </button>
+                <button class="dropdown-item" id="newBenchBtn"
+                    title="Create a new bench and open it in a new tab">
+                    🪑 Create new bench
+                </button>
+                <!-- make public — only useful if bench has NATS peers configured.
+                     hidden after use since it's a one-way action. -->
+                <button class="dropdown-item" id="makePublicBtn"
+                    title="Federate this room across all connected benches">
+                    🌐 Make room public
+                </button>
+                <button class="dropdown-item dropdown-item-danger" id="deleteBenchBtn"
+                    title="Permanently delete this bench for everyone">
+                    🗑️ Delete this bench
+                </button>
+            </div>
+        </div>
+
+        <button onclick="location.href='/'" class="btn-small">Leave</button>
+      </div>
+    </div><!-- end room-header -->
+
+    
+    <div id="messagesContainer" class="messages-container">
+      <!-- where the messages should appear -->
+       <div id="typingIndicator" class="system-message" style="display: none;"></div>
+    </div>
+
+    
+    <div class="input-container">
+        <input
+            type="file"
+            id="imageInput"
+            accept="image/*"
+            style="display: none;"
+        >
+        <button id="attachBtn" class="btn-small" title="Attach image">📎</button>
+      <textarea 
+        id="messageInput" 
+        placeholder="Type a message..."
+        rows="1"
+      ></textarea>
+      <button id="sendBtn">Send</button>
+    </div>
+  </div><!-- end roomInterface -->
+
+  <!-- invite modal — hidden until admin clicks Invite -->
+  <!-- lives at body level so position:fixed covers the whole page -->
+  <div id="inviteModal" class="modal-overlay hidden">
+      <div class="modal-box">
+          <h3>Invite people</h3>
+          <p style="font-size: 0.85rem; opacity: 0.7; margin: 8px 0 12px;">
+          Share this link. Anyone with it can join the bench.
+          </p>
+          <div class="link-container">
+              <input type="text" id="inviteLinkInput" readonly>
+              <button id="copyInviteBtn" class="btn-small">Copy</button>
+          </div>
+          <button id="closeModalBtn" class="btn-small" style="margin-top: 12px;">Close</button>
+      </div>
+  </div>
+
+  <!--dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
+  <script src="assets/js/crypto.js"></script>
+  <script src="assets/js/room.js"></script>
+
+</body>
+</html>

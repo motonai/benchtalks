@@ -1,17 +1,14 @@
 package main
 
 import (
-	"embed"
 	"log"
 	"net/http"
 
-	"github.com/isidman/benchtalks/config"
-	natspkg "github.com/isidman/benchtalks/nats"
-	"github.com/isidman/benchtalks/server"
+	"github.com/isidman/benchtalks/pkg/config"
+	natspkg "github.com/isidman/benchtalks/pkg/nats"
+	"github.com/isidman/benchtalks/pkg/public"
+	"github.com/isidman/benchtalks/pkg/server"
 )
-
-//go:embed all:public
-var staticFiles embed.FS
 
 func main() {
 	cfg := config.Load()
@@ -38,7 +35,7 @@ func main() {
 		defer relay.Close()
 	}
 
-	router := server.NewRouter(hub, staticFiles)
+	router := server.NewRouter(hub, public.StaticFiles)
 
 	log.Printf("Benchtalks is listening on: %s", cfg.Port)
 

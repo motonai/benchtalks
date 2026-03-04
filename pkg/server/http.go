@@ -14,7 +14,7 @@ func NewRouter(hub *Hub, staticFiles embed.FS) http.Handler {
 	// /index.html
 	// fs.Sub makes the "prefix" go away and it makes things get served from
 	// root, like the JS version.
-	stripped, err := fs.Sub(staticFiles, "public")
+	stripped, err := fs.Sub(staticFiles, ".")
 	if err != nil {
 		// If the filesystem embedded in, is broken, the server is going to have
 		// a tummy ache.
