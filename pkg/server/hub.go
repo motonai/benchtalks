@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	natspkg "github.com/isidman/benchtalks/nats"
+	natspkg "github.com/isidman/benchtalks/pkg/nats"
 
 	"github.com/gorilla/websocket"
 )

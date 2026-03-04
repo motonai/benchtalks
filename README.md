@@ -2,9 +2,13 @@
 
 End-to-end encrypted, fully ephemeral chat. No accounts. No logs. No traces.
 
-BenchTalks is a privacy-first chat application where the server is a pure message relay. It stores nothing, knows nothing, and forgets everything the moment a room empties. Encryption keys never leave your browser.
+BenchTalks is a privacy-first chat application where the server is a pure
+message relay. It stores nothing, knows nothing, and forgets everything the
+moment a room empties. Encryption keys never leave your browser.
 
-Self-hosted instances are called **benches**. Benches can connect into a **park** — a federated network where public rooms flow across instances while private rooms stay local.
+Self-hosted instances are called **benches**. Benches can connect into a
+**park** — a federated network where public rooms flow across instances while
+private rooms stay local.
 
 **Live bench:** https://benchtalks.chat
 
@@ -12,9 +16,14 @@ Self-hosted instances are called **benches**. Benches can connect into a **park*
 
 ## How it works
 
-When you create a room, your browser generates an encryption key. That key lives in the URL fragment — the part after `#`. Browsers never send fragments to servers, so the server never sees your key. Every message and image is encrypted before it leaves your device and decrypted after it arrives. The server sees only blobs it cannot read.
+When you create a room, your browser generates an encryption key. That key lives
+in the URL fragment — the part after `#`. Browsers never send fragments to
+servers, so the server never sees your key. Every message and image is encrypted
+before it leaves your device and decrypted after it arrives. The server sees
+only blobs it cannot read.
 
-Rooms exist only while people are in them. When the last person leaves, the room vanishes.
+Rooms exist only while people are in them. When the last person leaves, the room
+vanishes.
 
 ---
 
@@ -29,7 +38,8 @@ docker run -d \
   ghcr.io/isidman/benchtalks:latest
 ```
 
-Visit `http://your-server:3000`. Put Traefik, Caddy, or nginx in front to handle HTTPS.
+Visit `http://your-server:3000`. Put Traefik, Caddy, or nginx in front to handle
+HTTPS.
 
 ### Option 2 — Binary
 
@@ -55,7 +65,8 @@ No runtime dependencies.
 
 ## Federation — joining the park
 
-By default a bench runs standalone. To connect benches into a park, each bench needs a NATS server running alongside it.
+By default a bench runs standalone. To connect benches into a park, each bench
+needs a NATS server running alongside it.
 
 ### What you need
 
@@ -84,15 +95,21 @@ docker run -d \
   ghcr.io/isidman/benchtalks:latest
 ```
 
-The other operator does the same, pointing back at your NATS address. Multiple peers are comma-separated.
+The other operator does the same, pointing back at your NATS address. Multiple
+peers are comma-separated.
 
 ### Step 3 — Make a room public
 
-The room admin opens the **Admin** dropdown and clicks **Make room public**. Messages in that room will flow across all connected benches. Private rooms — the default — never leave the local bench.
+The room admin opens the **Admin** dropdown and clicks **Make room public**.
+Messages in that room will flow across all connected benches. Private rooms —
+the default — never leave the local bench.
 
 ### How peering works
 
-NATS clusters automatically once two servers can reach each other. No central authority, no registration, no discovery service. You connect only to benches you trust explicitly. BenchTalks publishes encrypted blobs to NATS subjects — no bench in the park can read another bench's traffic.
+NATS clusters automatically once two servers can reach each other. No central
+authority, no registration, no discovery service. You connect only to benches
+you trust explicitly. BenchTalks publishes encrypted blobs to NATS subjects — no
+bench in the park can read another bench's traffic.
 
 ---
 
@@ -111,8 +128,14 @@ See [SECURITY.md](SECURITY.md) for the responsible disclosure policy.
 ```bash
 git clone https://github.com/isidman/benchtalks.git
 cd benchtalks
-go build -o benchtalks .
+go build -o benchtalks cmd/benchtalks/main.go
 ./benchtalks
+```
+
+or with `make`:
+```bash
+make
+./bin/benchtalks
 ```
 
 Requires Go 1.24 or later.
@@ -129,9 +152,11 @@ Before opening a pull request:
 4. **Test end-to-end.** Create a room, send messages, send an image, test admin features.
 5. **One thing per PR.**
 
-**Good contributions:** bug fixes, performance improvements, better mobile UX, documentation, additional deployment guides.
+**Good contributions:** bug fixes, performance improvements, better mobile UX,
+documentation, additional deployment guides.
 
-**Out of scope:** user accounts, message persistence, server-side analytics, any feature requiring the server to read message content.
+**Out of scope:** user accounts, message persistence, server-side analytics,
+any feature requiring the server to read message content.
 
 ---
 
@@ -139,7 +164,11 @@ Before opening a pull request:
 
 GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
 
-The AGPL means: if you modify BenchTalks and run it as a network service, you must make your modified source code available to the users of that service. You cannot take this code, strip the privacy features, and run a closed-source fork as a commercial service.
+The AGPL means: if you modify BenchTalks and run it as a network service, you
+must make your modified source code available to the users of that service. You
+cannot take this code, strip the privacy features, and run a closed-source fork
+as a commercial service.
 
 ---
-The entire application state is a map of rooms in memory. When the process stops, everything is gone. This is a feature.
+The entire application state is a map of rooms in memory. When the process
+stops, everything is gone. This is a feature.

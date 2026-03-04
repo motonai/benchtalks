@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Benchtalks - Private chat for everyone</title>
+        <link rel="stylesheet" href="assets/css/style.css">
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>🪑 BenchTalks</h1>
+            <p class="tagline">E2EE Chat for everybody</p>
+            </header>
+
+            <main>
+                <div id="createSection" class="section">
+                    <p class="description">
+                        Create a private bench for you and your friends.
+                    </p>
+                    <button id="createRoomBtn" class="btn-primary">
+                        Create a bench
+                    </button>
+                </div>
+                <!--Loading-->
+                <div id="loadingSection" class="section hidden">
+                    <div class="spinner"></div>
+                    <p>Popping up your bench...</p>
+                </div>
+
+                <!--Failure-->
+                <div id="errorSection" class="section hidden">
+                    <p class="error-message" id="errorMessage"></p>
+                    <button id="retryBtn" class="btn-secondary">Try again?</button>
+                </div>
+            </main>
+
+            <footer>
+                <p>
+                    🔒 End-to-end encrypted • 
+                    No accounts required • 
+                    Rooms auto-delete after everyone leaves
+                </p>
+            </footer>
+        </div>
+
+        <!--TweetNacl from CDN loading-->
+        <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
+        <script src="assets/js/crypto.js"></script>
+        <script src="assets/js/app.js"></script>
+    </body>
+</html>
