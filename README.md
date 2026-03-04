@@ -1,4 +1,4 @@
-# 🪑 BenchTalks
+# 🪑 Benchtalks
 
 End-to-end encrypted, fully ephemeral chat. No accounts. No logs. No traces.
 
