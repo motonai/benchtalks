@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-//This is a user/seat.
+// This is a user/seat.
 // They are assigned a random id, have a connection and some messages.
 
 type Client struct {
@@ -29,15 +29,16 @@ type Room struct {
 	id        string
 	adminHash string
 	isPublic  bool
-	clients   map[string]*Client //who's sitting on the bench
-	mu        sync.Mutex         //lock before touch clients (ew wtf?)
+	clients   map[string]*Client // who's sitting on the bench
+	mu        sync.Mutex         // lock before touch clients (ew wtf?)
 }
 
-// This is a hub. It has all rooms that have users in them. Kinda like a very noisy and loud park.
+// This is a hub. It has all rooms that have users in them. Kinda like a very
+// noisy and loud park.
 type Hub struct {
 	rooms map[string]*Room
 	mu    sync.Mutex     // lock before touch rooms
-	relay *natspkg.Relay //nil for standalone, set at startup via SetRelay
+	relay *natspkg.Relay // nil for standalone, set at startup via SetRelay
 }
 
 // this functions is called once, when this whole thing starts, in main.go
@@ -47,16 +48,17 @@ func NewHub() *Hub {
 	}
 }
 
-// this one gives the hub a live relay to publish park messages through and its called from main.go, right after "connect()" succeeds after NATS_PEERS.
+// This one gives the hub a live relay to publish park messages through and its
+// called from main.go, right after "connect()" succeeds after NATS_PEERS.
 // If NATS is not configured, this is standalone.
 func (h *Hub) SetRelay(r *natspkg.Relay) {
 	h.relay = r
 }
 
-// this one checks if there's a room and if there isn't, it makes a new one.
-// admin has is for new rooms only (HEHE), not for existing ones.
+// This one checks if there's a room and if there isn't, it makes a new one.
+// Admin has is for new rooms only (HEHE), not for existing ones.
 func (h *Hub) getOrCreateRoom(roomID, adminHash string) *Room {
-	//locking the hub, because it reads or writes the room map
+	// locking the hub, because it reads or writes the room map
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -87,19 +89,23 @@ func (h *Hub) RoomSize(roomID string) int {
 	return len(room.clients)
 }
 
-// this one adds a client to a room if it exists, otherwise creates the room and adds the client in
+// This one adds a client to a room if it exists, otherwise creates the room and
+// adds the client in
 func (h *Hub) JoinRoom(roomID, adminHash string, client *Client) {
-	room := h.getOrCreateRoom(roomID, adminHash) //Πέρνω μες το βράδυ, στο σκοτάδι, μα κανένα αγάπης σημάδι. 🎶
+	room := h.getOrCreateRoom(roomID, adminHash) // Παίρνω μες το βράδυ,
+	                                             // στο σκοτάδι,
+												 // μα κανένα αγάπης σημάδι. 🎶
 
-	//locking the room, this time, because it writes the client map
+	// locking the room, this time, because it writes the client map
 	room.mu.Lock()
 	defer room.mu.Unlock()
 
 	room.clients[client.id] = client
 }
 
-// this one makes client go bye-bye.
-// if there's nobody on the bench, the bench gets pulled up by a secret tiny giant and eaten.
+// This one makes client go bye-bye.
+// If there's nobody on the bench, the bench gets pulled up by a secret tiny
+// giant and eaten.
 func (h *Hub) LeaveRoom(roomID string, client *Client) {
 	h.mu.Lock()
 	room, exists := h.rooms[roomID]
@@ -121,7 +127,7 @@ func (h *Hub) LeaveRoom(roomID string, client *Client) {
 	}
 }
 
-// this one is broadcasting a message.
+// This one is broadcasting a message.
 // Sends it to everyone apart from the sender.
 func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
 	h.mu.Lock()
@@ -140,8 +146,10 @@ func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
 			continue //no going back to sender
 		}
 
-		// This part allows kind-of asynchronous reading of messages on "send" channel of each client.
-		// And the rest of the clients don't need to wait for everyone to read the message broadcasted.
+		// This part allows kind-of asynchronous reading of messages on "send"
+		// channel of each client.
+		// And the rest of the clients don't need to wait for everyone to read
+		// the message broadcasted.
 		select {
 		case client.send <- message:
 		default:
@@ -150,24 +158,29 @@ func (h *Hub) Broadcast(roomID string, senderID string, message []byte) {
 		}
 	}
 
-	//two conditions: public room and live relay. That's all it takes to publish messages to the park.
-	//other benches will receive this and forward to their local clients.
-	//this happens only after the local loop is done. Park delivery happens in paraller after.
+	// Two conditions: public room and live relay. That's all it takes to
+	// publish messages to the park.
+	// other benches will receive this and forward to their local clients.
+	// this happens only after the local loop is done. Park delivery happens in
+	// paraller after.
 	if room.isPublic && h.relay != nil {
 		h.relay.Publish(roomID, message)
 	}
 }
 
-// BroadcastFromPark is called by the relay when a message comes to a bench from another bench via NATS. Same as Broadcast but sends to every local client.
-// "Sender" part doesn't exist here because the original sender is on a different bench entirely.
+// BroadcastFromPark is called by the relay when a message comes to a bench from
+// another bench via NATS. Same as Broadcast but sends to every local client.
+// "Sender" part doesn't exist here because the original sender is on a
+// different bench entirely.
 // Doesn't publish back to NATS, otherwise benches would echo each other forever.
 func (h *Hub) BroadcastFromPark(roomID string, payload []byte) {
 	h.mu.Lock()
 	room, exists := h.rooms[roomID]
 	h.mu.Unlock()
 
-	//if nobody on this bench is present, there's nothing to do.
-	//it's normal, since a public room can exist on a remote bench but has no local members yet.
+	// If nobody on this bench is present, there's nothing to do.
+	// It's normal, since a public room can exist on a remote bench but has no
+	// local members yet.
 	if !exists {
 		return
 	}
@@ -183,12 +196,15 @@ func (h *Hub) BroadcastFromPark(roomID string, payload []byte) {
 			delete(room.clients, id)
 		}
 	}
-	//No "relay.Publish" loop prevention
+	// No "relay.Publish" loop prevention
 }
 
-// MakePublic turns a room from private to public after verifying the admin token.
-// Returns true if the room is public, false if token was wrong or room doesn't exist.
-// ONE WAY ONLY: ONCE A ROOM IS PUBLIC IT STAYS PUBLIC. You can't un-federate messages that have already crossed benches.
+// MakePublic turns a room from private to public after verifying the admin
+// token.
+// Returns true if the room is public, false if token was wrong or room doesn't
+// exist.
+// ONE WAY ONLY: ONCE A ROOM IS PUBLIC IT STAYS PUBLIC. You can't un-federate
+// messages that have already crossed benches.
 func (h *Hub) MakePublic(roomID string, adminToken string) bool {
 	h.mu.Lock()
 	room, exists := h.rooms[roomID]
@@ -210,8 +226,9 @@ func (h *Hub) MakePublic(roomID string, adminToken string) bool {
 	return true
 }
 
-//this one verifies the admin token hash and closes/deletes the room.
-//Since it's a bool out put, it's going to be true if the bench is gone or false if the admin token hash doesn't match.
+// This one verifies the admin token hash and closes/deletes the room.
+// Since it's a bool out put, it's going to be true if the bench is gone or
+// false if the admin token hash doesn't match.
 
 // REVISION of this one later after completing the file.
 func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
@@ -223,13 +240,15 @@ func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 		return false
 	}
 
-	//this is where it hashes the token and compares it to stored hash on the creation of the bench.
+	// This is where it hashes the token and compares it to stored hash on the
+	// creation of the bench.
 	if !verifyAdminToken(adminToken, room.adminHash) {
 		return false
 	}
 
-	// send deleted message to everyone first, then wait for writePump to flush it
-	// before closing channels — otherwise the close frame races the deleted message
+	// Send deleted message to everyone first, then wait for writePump to flush
+	// it before closing channels — otherwise the close frame races the deleted
+	// message
 	deletedMsg := buildOutgoing("deleted", "", "")
 	room.mu.Lock()
 	for _, client := range room.clients {
@@ -258,9 +277,12 @@ func (h *Hub) DeleteRoom(roomID string, adminToken string) bool {
 	return true
 }
 
-// verifyAdminToken hashes the token incoming and checks it against the stored hash.
-// If it doesn't match exactly how the client hashes it in crypto.js it's a noooooo goooo. :I
-// And what it does is that it decodes the base64 into sha-256 bytes into hex string.
+// verifyAdminToken hashes the token incoming and checks it against the stored
+// hash.
+// If it doesn't match exactly how the client hashes it in crypto.js it's a
+// noooooo goooo. :I
+// And what it does is that it decodes the base64 into sha-256 bytes into hex
+// string.
 func verifyAdminToken(token, storedHash string) bool {
 	tokenBytes, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
