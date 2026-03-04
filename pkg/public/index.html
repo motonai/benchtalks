@@ -16,7 +16,7 @@
             <main>
                 <div id="createSection" class="section">
                     <p class="description">
-                        Create a private bench for up to 5 people.
+                        Create a private bench for you and your friends.
                     </p>
                     <button id="createRoomBtn" class="btn-primary">
                         Create a bench
@@ -26,35 +26,6 @@
                 <div id="loadingSection" class="section hidden">
                     <div class="spinner"></div>
                     <p>Popping up your bench...</p>
-                </div>
-                <!--Success-->
-                <div id="linksSection" class="section hidden">
-                    <h2> Your bench is ready.</h2>
-                    <div class="link-box">
-                        <h3>Send to your friends:</h3>
-                        <div class="link-container">
-                            <input type="text" id="shareableLink" readonly>
-                            <button id="copyShareBtn" class="btn-secondary">Copy</button>
-                        </div>
-                        <p class="hint">Send this up to 4 other people, however you like.</p>
-                    </div>
-
-                    <div class="link-box">
-                        <h3>⚠️ Save this link (so you can delete the room later):</h3>
-                        <div class="link-container">
-                            <input type="text" id="adminLink" readonly>
-                            <button id="copyAdminBtn" class="btn-secondary">Copy</button>
-                        </div>
-                        <p class="hint warning">
-                            Bookmark this! Only this link can delete the room. 
-                            Don't share it unless you trust them with deletion rights.
-                        </p>
-                    </div>
-
-                    <div class="actions">
-                        <button id="joinRoomBtn" class="btn-primary">Join your bench</button>
-                        <button id="createAnotherBtn" class="btn-secondary">Create another bench</button>
-                    </div>
                 </div>
 
                 <!--Failure-->
