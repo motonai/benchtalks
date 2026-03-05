@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o benchtalks cmd/benchtalks/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o benchtalks cmd/benchtalks/
 
 # Stage 2: F1 
 FROM scratch
