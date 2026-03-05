@@ -4,12 +4,18 @@
 // The hub speaks to local WS Clients and the Park uses NATS.
 // The relay file will translate between them in both directions.
 
-// So when a message crosses from one bench to another through NATS, it can't be the raw encrypted blob.
-// The relay wraps it, and then decides (via the user) on which bench to send it, in order to prevent loops.
+// So when a message crosses from one bench to another through NATS, it can't be
+// the raw encrypted blob.
+// The relay wraps it, and then decides (via the user) on which bench to send
+// it, in order to prevent loops.
 
-// The main goroutine will be establishing the NATS connection and then it will register the subscription handler.
-// The NATS library has it's one internal goroutines, calling the bench's handler function whenever a park public message arrives & the bench's handler checks benchID, calls the hub's Broadcast from Park.
-// The last but not least goroutine is from the bench's hub: calling the relay.Publish() when broadcasting a public room message.
+// The main goroutine will be establishing the NATS connection and then it will
+// register the subscription handler.
+// The NATS library has it's one internal goroutines, calling the bench's
+// handler function whenever a park public message arrives & the bench's handler
+// checks benchID, calls the hub's Broadcast from Park.
+// The last but not least goroutine is from the bench's hub: calling the
+// relay.Publish() when broadcasting a public room message.
 
 // Also the relay itself doesn't do stuff directly. NATS manages it's own.
 
@@ -32,24 +38,29 @@ type ParkMessage struct {
 	Payload []byte `json:"payload"` // untouched encrypted blob
 }
 
-// This one is what the relay calls when a message arrives that should be forwarded to local clients.
-// It matches the hub's Broadcast from Park. It's defined as a function type here so relay doesn't need to import the hub package.
+// This one is what the relay calls when a message arrives that should be
+// forwarded to local clients.
+// It matches the hub's Broadcast from Park. It's defined as a function type
+// here so relay doesn't need to import the hub package.
 // I don't want a circular import created.
 type BroadcastFunc func(roomID string, payload []byte)
 
-// the relay struct manages the NATS cluster connection, and also handles publishing and receiving messages for public rooms.
+// The relay struct manages the NATS cluster connection, and also handles
+// publishing and receiving messages for public rooms.
 type Relay struct {
 	conn      *nats.Conn    // live connection to NATS cluster
-	benchID   string        //buid
-	broadcast BroadcastFunc //called when a park message arrives for local clients
+	benchID   string        // buid
+	broadcast BroadcastFunc // called when a park message arrives for local clients
 }
 
-//this one creates the connection to NATS cluster using the peer addresses, then registers the subscription handler for all public rooms.
-//Gives back a plug&play relay or an error if the connection fails.
+// This one creates the connection to NATS cluster using the peer addresses,
+// then registers the subscription handler for all public rooms.
+// Gives back a plug&play relay or an error if the connection fails.
 
 // Reconnection is managed automatically.
 func Connect(peers []string, benchID string, broadcast BroadcastFunc) (*Relay, error) {
-	//nats.go wants a single URL string when connecting to a cluster (that means multiple addresses joined with commas)
+	// nats.go wants a single URL string when connecting to a cluster (that
+	// means multiple addresses joined with commas)
 	url := strings.Join(peers, ",")
 
 	//NATS handsake and tcp connection are handled by "nats.Connect"
@@ -76,8 +87,11 @@ func Connect(peers []string, benchID string, broadcast BroadcastFunc) (*Relay, e
 		broadcast: broadcast,
 	}
 
-	//Registration of subscriptions. NATS will call r.handleIncoming whenever a message arrives on room.public.* (any public room and bench)
-	// * stands for wildcard, and if it matches exactly one path, as examples: "room.public.abc" and "room.public.xyz" both match, but "room.public.abc.extra" doesn't match.
+	// Registration of subscriptions. NATS will call r.handleIncoming whenever a
+	// message arrives on room.public.* (any public room and bench)
+	// * stands for wildcard, and if it matches exactly one path, as examples:
+	// "room.public.abc" and "room.public.xyz" both match, but
+	// "room.public.abc.extra" doesn't match.
 	if _, err := conn.Subscribe(subjectPrefix+"*", r.handleIncoming); err != nil {
 		conn.Close()
 		return nil, err
@@ -98,7 +112,8 @@ func (r *Relay) Publish(roomID string, payload []byte) {
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		//this is a 100% unhappening thing. ParkMessage only contains a string and bytes
+		// This is a 100% unhappening thing. ParkMessage only contains a string
+		// and bytes
 		log.Printf("[nats] failed to marshal park message: %v", err)
 		return
 	}
@@ -109,8 +124,10 @@ func (r *Relay) Publish(roomID string, payload []byte) {
 	}
 }
 
-// This one is called by NATS library (in its own goroutine), when a message gets to room.public.*.
-// Checks the BenchID to prevent loops, and then it forwards the payload to local clients via broadcasting
+// This one is called by NATS library (in its own goroutine), when a message
+// gets to room.public.*.
+// Checks the BenchID to prevent loops, and then it forwards the payload to
+// local clients via broadcasting
 func (r *Relay) handleIncoming(msg *nats.Msg) {
 	var park ParkMessage
 	if err := json.Unmarshal(msg.Data, &park); err != nil {
@@ -118,19 +135,24 @@ func (r *Relay) handleIncoming(msg *nats.Msg) {
 		return
 	}
 
-	//loop prevention. the message being send from this bench to the park via NATS, will come back to us too (since we're subscribed to our own subject)
-	//that's why we discard it here, so local clients don't see duplicates of their own messages.
+	// loop prevention. the message being send from this bench to the park via
+	// NATS, will come back to us too (since we're subscribed to our own
+	// subject)
+	// that's why we discard it here, so local clients don't see duplicates of
+	// their own messages.
 	if park.BenchID == r.benchID {
 		return
 	}
 
-	//pull the room ID from subject and trim prefix removes the "room.public" leaving the message
+	// Pull the room ID from subject and trim prefix removes the "room.public"
+	// leaving the message
 	roomID := strings.TrimPrefix(msg.Subject, subjectPrefix)
 	if roomID == "" {
 		return
 	}
 
-	//get it to clients while hub finds the right room, in each connected WS client
+	// Get it to clients while hub finds the right room, in each connected WS
+	// client
 	r.broadcast(roomID, park.Payload)
 }
 
@@ -140,19 +162,4 @@ func (r *Relay) Close() {
 		r.conn.Close()
 		log.Printf("[nats] disconnected from park")
 	}
-}
-
-//This one reports if the NATS connection is alive or not to the app health handler
-//so that it can show federation sttus on the dashboard.
-//Safe to call from goroutines.
-
-//Something I've learned: In Go you can call a method on a nil pointer without panicking, as long as the method handles it. :o
-//In this case r == nil would never actually be reached in practice.
-//So if someone calls "IsConnected()" directly on a uninitialized relay, it just returns false. | D E F E N S I V E Programming.
-
-func (r *Relay) IsConnected() bool {
-	if r == nil || r.conn == nil {
-		return false
-	}
-	return r.conn.IsConnected()
 }
