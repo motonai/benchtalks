@@ -210,6 +210,8 @@ function base64UrlToBase64(base64url) {
 function parseRoomURL() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
+    const pairToken = urlParams.get('pair');
+    const claimer = urlParams.get('claimer');
     
     const fragment = window.location.hash.substring(1);
     const fragmentParams = new URLSearchParams(fragment);
@@ -226,6 +228,8 @@ function parseRoomURL() {
     return {
         roomId,
         encryptionKey,
-        adminToken
+        adminToken,
+        pairToken,
+        claimer,
     };
 }

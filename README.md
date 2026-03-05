@@ -111,6 +111,101 @@ authority, no registration, no discovery service. You connect only to benches
 you trust explicitly. BenchTalks publishes encrypted blobs to NATS subjects — no
 bench in the park can read another bench's traffic.
 
+
+## 🌐 Federation Security
+
+### How federation works
+
+BenchTalks supports federating benches across multiple server instances via
+NATS. When federation is enabled, benches communicate through a shared NATS
+cluster called the "park". Messages remain end-to-end encrypted throughout —
+the NATS layer only sees encrypted blobs, never plaintext content.
+
+### ⚠️ NATS traffic is unencrypted by default
+
+This is the most important thing to understand before running a federated
+setup. NATS does not encrypt traffic between servers out of the box. This
+means:
+
+- Message **metadata** is visible on the wire (room IDs, timing, peer IPs)
+- Message **content** is still protected — blobs are E2EE encrypted before
+  they ever reach NATS, so the NATS layer cannot read them
+- Anyone who can observe traffic between your NATS servers can see which
+  rooms are active and when messages are sent — but not what they say
+
+For a private or sensitive deployment, you should encrypt NATS cluster
+traffic using TLS. Securing your NATS server is outside the scope of this
+README — refer to the official documentation:
+
+👉 https://docs.nats.io/nats-concepts/security
+
+### Interface binding
+
+By default, `--cluster 0.0.0.0` binds the NATS cluster port to all network
+interfaces, including your public IP. This exposes the cluster port to the
+internet. For most deployments you should bind to a specific interface:
+```bash
+# bind cluster port to localhost only (for local peering):
+nats-server --cluster 127.0.0.1:6224
+
+# bind both client and cluster ports to a specific interface:
+nats-server -a 127.0.0.1 --cluster 127.0.0.1:6224
+```
+
+The `-a` flag controls which interface the client port binds to. Without it,
+the client port also defaults to all interfaces, which leaks your NATS
+server's presence on all available network addresses.
+
+### Bench pairing
+
+Federation between benches requires an explicit pairing handshake before
+messages are relayed. A bench will not forward messages to or from another
+bench until a pairing token has been generated and claimed.
+
+**How to pair two benches:**
+
+1. The room admin on bench-A clicks **Admin ▾ → Pair with another bench**
+2. They enter bench-B's Bench ID (found in the `BENCH_ID` env var on bench-B)
+3. A pairing URL is generated — valid for **5 minutes**, **single use only**
+4. The admin shares that URL with the bench-B operator **out of band**
+   (email, Signal, etc. — not through BenchTalks itself)
+5. The bench-B operator opens the URL on bench-B's instance
+6. The handshake completes automatically — trust is now bidirectional
+
+**Properties of the pairing token:**
+
+- Bound to a specific bench ID — useless to any other bench
+- Single use — burned immediately on first valid claim
+- 5 minute TTL — expired tokens are rejected regardless of validity
+- Never stored in plaintext — only the SHA-256 hash is kept in memory
+- Lost on server restart — in-memory only, not persisted to disk
+
+**What pairing protects against:**
+
+Without pairing, any bench connected to the same NATS cluster could
+silently receive and relay messages for any public room — provided they
+knew the room ID and encryption key. Pairing ensures that only explicitly
+trusted benches participate in federation for a given room.
+
+**What pairing does not protect against:**
+
+Pairing operates at the bench level, not the NATS level. A malicious
+operator who controls a NATS server in the cluster can still observe
+message metadata. For full protection, combine bench pairing with NATS
+TLS as described above.
+
+### Threat model summary
+
+| Threat | Protected? | How |
+|--------|-----------|-----|
+| Server reads message content | ✅ Yes | E2EE — server never decrypts |
+| Untrusted bench relays messages | ✅ Yes | Pairing token handshake |
+| Leaked pairing URL used by wrong bench | ✅ Yes | ClaimerID binding |
+| Pairing URL reused after claiming | ✅ Yes | Single-use burn on claim |
+| NATS metadata observation | ⚠️ Partial | Use NATS TLS for full protection |
+| NATS traffic interception | ⚠️ Partial | Use NATS TLS for full protection |
+| Leaked room key + known room ID | ⚠️ Partial | Pairing required but key still sensitive |
+
 ---
 
 ## Security model

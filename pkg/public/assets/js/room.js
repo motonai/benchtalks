@@ -6,6 +6,8 @@ let adminToken = null;
 let displayName = null;
 let ws = null;
 let isConnected = false;
+let pairToken = null;
+let isPairingURL = false;
 let notificationSound = null;
 let soundEnabled = true;
 let userCount_n = 0;
@@ -158,6 +160,13 @@ function init() {
     roomId = urlData.roomId;
     encryptionKey = urlData.encryptionKey;
     adminToken = urlData.adminToken;
+    pairToken = urlData.pairToken;
+    isPairingURL = pairToken !== null && urlData.claimer !== null;
+
+    if (isPairingURL && !adminToken) {
+        showError('This pairing link requires an admin token. Make sure you opened the full pairing URL.');
+        return;
+    }
 
     if (adminToken) {
         // show the admin dropdown instead of the old delete button
@@ -268,10 +277,25 @@ function handleWebSocketMessage(data) {
             break;
 
         case 'welcome':
-            //server gives info on how many people are in the room at the moment
-            //Better than counting join/leave events
+            // Server gives info on how many people are in the room at the moment.
+            // Better than counting join/leave events.
             userCount_n = parseInt(data.payload);
             updateUserCount(userCount_n);
+
+            // If it was a pairing URL, send the claim now that we've confirmed our seat on this bench
+            if (isPairingURL) {
+                ws.send(JSON.stringify({
+                    type:   'claim_pair',
+                    roomId: roomId,
+                    payload: pairToken, //raw token from URL
+                }))
+
+                // Cleaning the pair token from the URL immidiately after sending.
+                // It's single-use - leaving it in the URL invites accidental
+                // reuse or sharing. The key and admin stay in the fragment.
+                const cleanURL = window.location.pathname + '?room=' + roomId + window.location.hash
+                window.history.replaceState(null,'', cleanURL)
+            }
             break;
 
         case 'message':
@@ -283,21 +307,47 @@ function handleWebSocketMessage(data) {
             break;
 
         case 'deleted':
-            // admin deleted the room — everyone gets this
+            // Admin deleted the room — everyone gets this.
             handleRoomDeleted();
             break;
 
         case 'made_public':
-            // admin made the room public — everyone gets this including the admin
-            // hide the button so it can't be clicked twice (it's one-way anyway)
+            // Admin made the room public — everyone gets this including the admin.
+            // Hide the button so it can't be clicked twice (it's one-way anyway).
             makePublicBtn.classList.add('hidden');
             addSystemMessage('🌐 This bench is now public — messages are visible across the park');
             break;
 
+        
+
         case 'error':
-            // server sent us an error (e.g. invalid admin token)
+            // Server sent us an error (e.g. invalid admin token).
             console.error('Server error:', data.payload);
             alert(data.payload);
+            break;
+        
+        case 'pair_token':
+        
+            const [rawToken, claimerID] = data.payload.split('|')
+            
+            const pairingURL = window.location.origin + '/room.html' + '?room=' + roomId + '&pair=' + rawToken + '&claimer=' + claimerID + window.location.hash
+
+            document.getElementById('inviteLinkInput').value = pairingURL
+            document.getElementById('inviteModal').classList.remove('hidden')
+
+            addSystemMessage('Pairing link generated - valid for 5 minutes, single use only.')
+            break;
+
+        case 'pair_claim_sent':
+            addSystemMessage('Pairing request sent, waiting for approval...')
+            break;
+        
+        case 'pair_approved':
+            addSystemMessage('Pairing approved! This bench is now federated with bench' + data.payload)
+            break;
+        
+        case 'pair_rejected':
+            addSystemMessage('Pairing rejected. Token may be expired or invalid.')
             break;
 
         default:
@@ -567,5 +617,22 @@ imageInput.addEventListener('change', (e) => {
     imageInput.value = '';
 });
 
+document.getElementById('pairBenchBtn').addEventListener('click', () => {
+
+    const claimerBenchID = prompt('Enter the Bench ID of the bench you want to pair with.\n' + 
+        'The other operator can find their Bench ID in their server config (BENCH_ID env var).'
+    )
+
+    if (!claimerBenchID || claimerBenchID.trim() === '') {
+        return //cancellation or null entry
+    }
+
+    ws.send(JSON.stringify({
+        type:   'request_pair',
+        roomId:     roomId,
+        payload:    adminToken,
+        adminHash: claimerBenchID.trim(),
+    }))
+})
 
 init();

@@ -18,7 +18,7 @@ func main() {
 	// relay into the hub. If not, "hub.relay" stays nil and everything runs as
 	// standalone
 	if len(cfg.NATSPeers) > 0 {
-		relay, err := natspkg.Connect(cfg.NATSPeers, cfg.BenchID, hub.BroadcastFromPark)
+		relay, err := natspkg.Connect(cfg.NATSPeers, cfg.BenchID, hub.BroadcastFromPark, hub.HandlePairClaim, hub.HandlePairApproved)
 		if err != nil {
 			// fatal fail since not connecting to the park.
 			// if an operator has configured peers, they expect federation to
