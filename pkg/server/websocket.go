@@ -205,6 +205,70 @@ func (c *Client) readPump(hub *Hub) {
 				hub.Broadcast(roomID, c.id, notify)
 				c.send <- buildOutgoing("made_public", "", c.id)
 			}
+		
+		// Request for pairing token
+		case "request_pair":
+			// guard: must be in a room
+			if roomID == ""  {
+				continue
+			}
+
+			// msg.Payload = admin token
+			// msg.AdminHash = claimerBenchID (reusing the field)
+			claimerBenchID := msg.AdminHash
+
+			if claimerBenchID == "" {
+				errMsg := buildOutgoing("error", "claimer bench ID required", c.id)
+				c.send <- errMsg
+				continue
+			}
+
+			// Hub generates the token - verifies admin, stores hash, returns raw token
+			rawToken, err := hub.GeneratePairToken(roomID, msg.Payload, claimerBenchID)
+			if err != nil {
+				errMsg := buildOutgoing("error", err.Error(), c.id)
+				c.send <- errMsg
+				continue
+			}
+
+			// Build the pairing URL and send it back to the admin's browser.
+    		// The admin copies this URL and shares it with the bench-B operator.
+
+    		// Note: the raw token is being sent here — the browser will put it in
+    		// the ?pair= query param of the URL it constructs.
+    		// The claimerBenchID is sent as well, so the browser can put it in &claimer=
+			pairPayload := rawToken + "|" + claimerBenchID
+			c.send <- buildOutgoing("pair_token", pairPayload, c.id)
+
+		case "claim_pair":
+			if roomID == "" {
+				continue
+			}
+
+			// Relay must exist - claiming only makes sense in a federated setup
+			if hub.relay == nil {
+				errMsg := buildOutgoing("error", "this bench is not connected to a park", c.id)
+				c.send <- errMsg
+				continue
+			}
+
+			rawToken := msg.Payload
+			if rawToken == "" {
+				errMsg := buildOutgoing("error", "missing pair token", c.id)
+				c.send <- errMsg
+				continue
+			}
+			
+			// Publish the claim to the park via NATS.
+			// e.x: bench A will receive it on bench.pair.verify.{roomID},
+			// verify it, and publish back apporoved or rejected.
+			// hub.relay.BenchID() gives us this bench's own ID for Option B binding.
+			hub.relay.PublishPairClaim(roomID, rawToken, hub.relay.BenchID())
+
+			// No need to wait for a response here as it arrives asynchronously via NATS
+			// and goes through HandlePairApproved or HandlePairRejected.
+			// The client gets notified when that happens via a future WS message.
+			c.send <- buildOutgoing("pair_claim_sent", "", c.id)
 		}
 	}
 }

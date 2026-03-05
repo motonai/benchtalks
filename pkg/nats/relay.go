@@ -30,12 +30,27 @@ import (
 )
 
 // This is the NATS subject namespace for all public room messages
-const subjectPrefix = "room.public."
-
+const (
+	subjectPrefix = "room.public."
+	pairVerifyPrefix = "bench.pair.verify."
+	pairApprovedPrefix = "bench.pair.approved."
+	pairRejectedPrefix = "bench.pair.rejected." 
+)
 // This one is the envelope I told you in the disclaimer
 type ParkMessage struct {
 	BenchID string `json:"benchId"` //which bench sent this for the first time
 	Payload []byte `json:"payload"` // untouched encrypted blob
+}
+
+type PairClaimMessage struct {
+	ClaimerBenchID	string `json:"claimerBenchId"`
+	RawToken	string `json:"rawToken"`	
+}
+
+type PairResponseMessage struct {
+	ClaimerBenchID	string `json:"claimerBenchId"`
+	ApproverBenchID  string `json:"approverBenchID"`
+	Approved	bool `json:"approved"`
 }
 
 // This one is what the relay calls when a message arrives that should be
@@ -43,7 +58,11 @@ type ParkMessage struct {
 // It matches the hub's Broadcast from Park. It's defined as a function type
 // here so relay doesn't need to import the hub package.
 // I don't want a circular import created.
-type BroadcastFunc func(roomID string, payload []byte)
+type BroadcastFunc func(roomID string, senderBenchID string , payload []byte)
+
+type PairClaimFunc func(roomID string, rawToken string, claimerBenchID string)
+
+type PairApprovedFunc func(roomID string, approvedBenchID string)
 
 // The relay struct manages the NATS cluster connection, and also handles
 // publishing and receiving messages for public rooms.
@@ -51,6 +70,11 @@ type Relay struct {
 	conn      *nats.Conn    // live connection to NATS cluster
 	benchID   string        // buid
 	broadcast BroadcastFunc // called when a park message arrives for local clients
+
+	//function types keep relay decoupled from the hub package :3
+	onPairClaim PairClaimFunc
+	onPairApproved PairApprovedFunc
+	//no callback on rejections - just being logged on relay.
 }
 
 // This one creates the connection to NATS cluster using the peer addresses,
@@ -58,7 +82,7 @@ type Relay struct {
 // Gives back a plug&play relay or an error if the connection fails.
 
 // Reconnection is managed automatically.
-func Connect(peers []string, benchID string, broadcast BroadcastFunc) (*Relay, error) {
+func Connect(peers []string, benchID string, broadcast BroadcastFunc, onClaim PairClaimFunc, onApproved PairApprovedFunc) (*Relay, error) {
 	// nats.go wants a single URL string when connecting to a cluster (that
 	// means multiple addresses joined with commas)
 	url := strings.Join(peers, ",")
@@ -85,6 +109,8 @@ func Connect(peers []string, benchID string, broadcast BroadcastFunc) (*Relay, e
 		conn:      conn,
 		benchID:   benchID,
 		broadcast: broadcast,
+		onPairClaim: onClaim,
+		onPairApproved: onApproved,
 	}
 
 	// Registration of subscriptions. NATS will call r.handleIncoming whenever a
@@ -93,6 +119,18 @@ func Connect(peers []string, benchID string, broadcast BroadcastFunc) (*Relay, e
 	// "room.public.abc" and "room.public.xyz" both match, but
 	// "room.public.abc.extra" doesn't match.
 	if _, err := conn.Subscribe(subjectPrefix+"*", r.handleIncoming); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if _, err := conn.Subscribe(pairVerifyPrefix+"*", r.handlePairVerify); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if _, err := conn.Subscribe(pairApprovedPrefix+"*", r.handlePairApproved); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	if _, err := conn.Subscribe(pairRejectedPrefix+"*", r.handlePairRejected); err != nil {
 		conn.Close()
 		return nil, err
 	}
@@ -113,7 +151,7 @@ func (r *Relay) Publish(roomID string, payload []byte) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		// This is a 100% unhappening thing. ParkMessage only contains a string
-		// and bytes
+		// and bytes.
 		log.Printf("[nats] failed to marshal park message: %v", err)
 		return
 	}
@@ -124,6 +162,122 @@ func (r *Relay) Publish(roomID string, payload []byte) {
 	}
 }
 
+// This one is called from the hub when the admin opens a pairing URL 
+// and triggers "claim_pair" via WS.
+// Sends claim to remote bench via NATS so the token can be verified 
+// and response exists.
+func (r *Relay) PublishPairClaim(roomID, rawToken, claimerBenchID string) {
+	msg := PairClaimMessage{
+		ClaimerBenchID:	claimerBenchID,
+		RawToken:	rawToken,
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("[nats] failed to marshal pair claim: %v", err)
+		return
+	}
+
+	subject := pairVerifyPrefix + roomID
+	if err := r.conn.Publish(subject,data); err != nil {
+		log.Printf("[nats] failed to publish pair claim to %s: %v", subject, err)
+	}
+}
+
+// This is also called by the hub after the verification of a claim.
+// It sends the bool response back to the claiming bench, 
+// after VerifyPairClaim runs.
+func (r *Relay) PublishPairResponse(roomID, claimerBenchID string, approved bool) {
+	msg := PairResponseMessage{
+		ClaimerBenchID: claimerBenchID,
+		ApproverBenchID: r.benchID,
+		Approved:	approved,
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("[nats] failed to marshal pair response: %v", err)
+		return
+	}
+
+	prefix := pairRejectedPrefix
+	if approved {
+		prefix = pairApprovedPrefix
+	}
+
+	subject := prefix + roomID
+	if err := r.conn.Publish(subject, data); err != nil {
+		log.Printf("[nats] failed to publish pair response to %s: %v", subject, err)
+	}
+}
+
+// So when a bench sends a claim to another, 
+// this function below is being called and 
+// it routes to the hub's onPairClaim callback.
+
+func (r *Relay) handlePairVerify(msg *nats.Msg) {
+	var claim PairClaimMessage
+	if err := json.Unmarshal(msg.Data, &claim); err != nil {
+		log.Printf("[nats] malformed pair claim on %s: %v", msg.Subject, err)
+		return
+	}
+
+	roomID := strings.TrimPrefix(msg.Subject, pairVerifyPrefix)
+	if roomID == "" {
+		return
+	}
+
+	log.Printf("[nats] pair claim received for room %s from bench %s", roomID, claim.ClaimerBenchID)
+
+	// The actual verification is done by the hub, relay just routes
+	r.onPairClaim(roomID, claim.RawToken, claim.ClaimerBenchID)
+}
+
+// This one is called on the bench that does the claim,
+// when the claimable connection is approved by the wannabe claimed bench.
+// From now on the claimed bench is a trusted peer to the bench that claimed it.
+func (r *Relay) handlePairApproved(msg *nats.Msg) {
+	var response PairResponseMessage
+	if err := json.Unmarshal(msg.Data, &response); err != nil {
+		log.Printf("[nats] malformed pair approved on %s: %v", msg.Subject, err)
+		return
+	}
+	// Confirmation of the approval for the bench that's being claimed.
+	// If another bench tried to claim first on the same subject, it'd be visible. 
+	// Otherwise, if it's not the claiming bench's approval, it will be ignored.
+	if response.ClaimerBenchID != r.benchID {
+		return
+	}
+
+	
+	roomID := strings.TrimPrefix(msg.Subject, pairApprovedPrefix)
+	if roomID == "" {
+		return
+	}
+
+	
+	log.Printf("[nats] pair approved for room %s", roomID)
+	r.onPairApproved(roomID, response.ApproverBenchID)
+}
+
+// When a bench rejects claim, the other one calls the function below.
+// No callback for hub needed, nothing to register on rejection. 
+// Only logging for debugging purposes.
+func (r *Relay) handlePairRejected(msg *nats.Msg) {
+	var response PairResponseMessage
+	if err := json.Unmarshal(msg.Data, &response); err != nil {
+		log.Printf("[nats] malformed pair rejected on %s: %v", msg.Subject, err)
+		return
+	}
+
+	if response.ClaimerBenchID != r.benchID {
+		return
+	}
+	
+	roomID := strings.TrimPrefix(msg.Subject, pairRejectedPrefix)
+	log.Printf("[nats] pair rejected for room %s - token invalid, expired or wrong bench", roomID)
+}
+ 
 // This one is called by NATS library (in its own goroutine), when a message
 // gets to room.public.*.
 // Checks the BenchID to prevent loops, and then it forwards the payload to
@@ -153,7 +307,7 @@ func (r *Relay) handleIncoming(msg *nats.Msg) {
 
 	// Get it to clients while hub finds the right room, in each connected WS
 	// client
-	r.broadcast(roomID, park.Payload)
+	r.broadcast(roomID, park.BenchID, park.Payload)
 }
 
 // This one closes the NATS connection and is called when the server shuts down.
@@ -162,4 +316,12 @@ func (r *Relay) Close() {
 		r.conn.Close()
 		log.Printf("[nats] disconnected from park")
 	}
+}
+
+// Helper function :D
+
+// BenchID gives back this relay's bench identifier.
+// Used by the hub to it's own benchID when needed.
+func (r *Relay) BenchID() string {
+	return r.benchID
 }
