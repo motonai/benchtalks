@@ -1,15 +1,8 @@
 //DOM
 const createSection = document.getElementById('createSection');
 const loadingSection = document.getElementById('loadingSection');
-const linksSection = document.getElementById('linksSection');
 const errorSection = document.getElementById('errorSection');
 const createRoomBtn = document.getElementById('createRoomBtn');
-const shareableLink = document.getElementById('shareableLink');
-const adminLink = document.getElementById('adminLink');
-const copyShareBtn = document.getElementById('copyShareBtn');
-const copyAdminBtn = document.getElementById('copyAdminBtn');
-const joinRoomBtn = document.getElementById('joinRoomBtn');
-const createAnotherBtn = document.getElementById('createAnotherBtn');
 const retryBtn = document.getElementById('retryBtn');
 const errorMessage = document.getElementById('errorMessage');
 
@@ -23,7 +16,6 @@ function showSection(section) {
     //hide all sections
     createSection.classList.add('hidden');
     loadingSection.classList.add('hidden');
-    linksSection.classList.add('hidden');
     errorSection.classList.add('hidden');
 
     //show requested
@@ -114,24 +106,6 @@ async function copyToClipboard(text, button) {
 
 //event listeners
 createRoomBtn.addEventListener('click',createRoom);
-copyShareBtn.addEventListener('click', () => {
-    copyToClipboard(currentShareableURL, copyShareBtn);
-});
-copyAdminBtn.addEventListener('click', () => {
-    copyToClipboard(currentAdminURL, copyAdminBtn);
-});
-
-joinRoomBtn.addEventListener('click', () => {
-    //2 room navigation
-    window.location.href = currentShareableURL; 
-});
-
-createAnotherBtn.addEventListener('click', () => {
-    currentRoomId = null;
-    currentShareableURL = null;
-    currentAdminURL = null;
-    showSection(createSection);
-});
 
 retryBtn.addEventListener('click', () => {
     showSection(createSection);
@@ -139,4 +113,3 @@ retryBtn.addEventListener('click', () => {
 
 //first thing user sees is the creation section by default
 showSection(createSection);
-
